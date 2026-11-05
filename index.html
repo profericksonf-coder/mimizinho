@@ -433,8 +433,38 @@ fieldset.grupo .opcao + .opcao { margin-top: 0; }
 .manut-regs li { display: flex; justify-content: space-between; align-items: center; gap: 8px; border-top: 1px solid var(--linha); padding-top: 4px; }
 .manut-regs small { display: block; color: var(--apagado); }
 
+/* ---------- ficha do carro, custos e margem, simulador, configurações ---------- */
+.neg { color: var(--pare); }
+.mes-nav, .ficha-nav { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.mes-nav strong { font: 800 1.05rem/1.2 var(--f-placa); text-transform: capitalize; min-width: 9.5em; text-align: center; }
+.mes-nav .fino, .ficha-nav .fino { font-size: 1rem; padding: 4px 12px; }
+.ficha-nav select { flex: 1; min-width: 0; max-width: 360px; background: var(--sup); border: 1px solid var(--linha); border-radius: 8px; padding: 8px; font-size: 16px; }
+.ficha { background: var(--sup); border: 1px solid var(--linha); border-radius: 10px; padding: 12px; display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.ficha-cab { display: grid; grid-template-columns: minmax(0, 180px) minmax(0, 1fr); gap: 12px; align-items: center; }
+.ficha-dados { display: flex; flex-direction: column; gap: 3px; min-width: 0; align-items: flex-start; }
+.ficha-dados strong { font: 900 1.3rem/1.15 var(--f-placa); }
+.ficha-dados small { color: var(--apagado); }
+.ficha .manut-cartao { border: 0; padding: 0; }
+.tabela.rank tr.topo-rank td { background: color-mix(in srgb, var(--verde) 12%, transparent); }
+.tabela.rank tr.fundo-rank td { background: color-mix(in srgb, var(--pare) 10%, transparent); }
+.fixos { display: flex; flex-direction: column; gap: 6px; }
+.fixo-linha { display: grid; grid-template-columns: minmax(0, 1fr) 130px auto; gap: 8px; align-items: center; }
+.fixo-linha .erro { grid-column: 1 / -1; }
+.fixo-nome { background: var(--sup); border: 1px solid var(--linha); border-radius: 7px; padding: 7px 8px; font-size: 16px; min-width: 0; }
+.fixo-nome[aria-invalid="true"], .pl-entrada:has(input[aria-invalid="true"]) { border-color: var(--pare); }
+.fixo-linha.novo { border-top: 1px dashed var(--linha); padding-top: 8px; }
+.sim-campos { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; }
+.sim-campos .nota .fino { margin-left: 4px; }
+.config { max-width: 520px; }
+.config .pl-entrada { padding: 0 10px 0 0; }
+.config .pl-entrada input { padding-left: 10px; text-align: left; }
+
 @media (max-width: 460px) {
   .trocas { grid-template-columns: minmax(0, 1fr); }
+  .ficha-cab { grid-template-columns: minmax(0, 1fr); }
+  .ficha-foto { max-width: 220px; }
+  .fixo-linha { grid-template-columns: minmax(0, 1fr) 110px; }
+  .fixo-linha .fino { grid-column: 1 / -1; justify-self: start; }
   .destino-fixo { font-size: 1.5rem; }
   .reinicio:not(.certo) .reinicio-txt { display: none; }
   .reinicio:not(.certo) .reinicio-ico { display: inline; font-size: 1.1rem; line-height: 1; }
@@ -510,7 +540,7 @@ fieldset.grupo .opcao + .opcao { margin-top: 0; }
     return Math.round(n * 100);
   }
 
-  /* f: { modelo, ano, placa, categoria, tarifa, km } em texto, como veio do formulário.
+  /* f: { modelo, ano, placa, categoria, tarifa, km, fipe } em texto, como veio do formulário.
      devolve { erros, carro } — carro já limpo (placa normalizada, números convertidos) */
   function validarCarro(f, opc) {
     const { categorias, placasEmUso, anoAtual } = opc;
@@ -527,7 +557,9 @@ fieldset.grupo .opcao + .opcao { margin-top: 0; }
     if (tarifa === null) erros.tarifa = 'erroTarifa';
     const km = kmValido(f.km);
     if (km === null) erros.km = 'erroKmCarro';
-    return { erros, carro: { modelo, ano, placa, categoria: f.categoria, tarifa, km } };
+    const fipe = validarFipe(f.fipe);
+    if (fipe === null) erros.fipe = 'erroFipe';
+    return { erros, carro: { modelo, ano, placa, categoria: f.categoria, tarifa, km, fipe } };
   }
 
   /* f: { tipo, data (AAAA-MM-DD), km, valor, obs }; outra manutenção precisa dizer o que foi na observação */
@@ -566,6 +598,131 @@ fieldset.grupo .opcao + .opcao { margin-top: 0; }
 
   function gastoManutencao(manutencoes, unidadeId) {
     return manutencoes.filter((m) => m.unidade === unidadeId).reduce((s, m) => s + m.valor, 0);
+  }
+
+  /* ---------- custos, margem e simulador (dono) ---------- */
+  // ipva e seguro são pagos 1 vez por ano: na margem entram 1/12 por mês, nos 12 meses a partir do lançamento
+  const TIPOS_CUSTO = ['ipva', 'seguro', 'rastreador', 'parcela', 'licenciamento', 'multa', 'outro'];
+  const CUSTOS_ANUAIS = ['ipva', 'seguro'];
+  const ALIQUOTA_MAX = 1000; // alíquota em centésimos de % (100 = 1%); teto 10%
+
+  // dinheiro digitado ("105.000", "1.180,50", "69,90") -> centavos dentro da faixa, ou null; vazio só vale se `vazio` vier
+  function validarDinheiro(texto, min, max, vazio) {
+    const limpo = String(texto ?? '').trim().replace(/\.(?=\d{3}(\D|$))/g, '');
+    if (limpo === '' && vazio !== undefined) return vazio;
+    if (!/^\d+([.,]\d{1,2})?$/.test(limpo)) return null;
+    const c = Math.round(Number(limpo.replace(',', '.')) * 100);
+    return c >= min && c <= max ? c : null;
+  }
+
+  // valor FIPE: vazio = não informado (0); senão de R$ 1.000 a R$ 5 milhões
+  function validarFipe(texto) { return validarDinheiro(texto, 100000, 500000000, 0); }
+
+  // "1", "1,5" ou "4,00" (%) -> centésimos de % (100, 150, 400), de 0 a 10%
+  function validarAliquota(texto) {
+    const limpo = String(texto ?? '').trim();
+    if (!/^\d{1,2}([.,]\d{1,2})?$/.test(limpo)) return null;
+    const v = Math.round(Number(limpo.replace(',', '.')) * 100);
+    return v <= ALIQUOTA_MAX ? v : null;
+  }
+
+  // IPVA anual = valor FIPE × alíquota
+  function ipva(fipe, aliquota) { return Math.round((fipe * aliquota) / 10000); }
+
+  /* f: { tipo, data, valor, obs } -> { erros, custo }; em "outro", a observação diz o que foi */
+  function validarCusto(f, hoje) {
+    const erros = {};
+    if (!TIPOS_CUSTO.includes(f.tipo)) erros.tipo = 'erroTipoCusto';
+    const data = String(f.data || '');
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(data) || Number.isNaN(ms(`${data}T00:00`))) erros.data = 'erroDataManut';
+    else if (data > hoje) erros.data = 'erroDataManutFutura';
+    const valor = validarDinheiro(f.valor, 1, 100000000);
+    if (valor === null) erros.valor = 'erroValorCusto';
+    const obs = String(f.obs || '').trim();
+    if (obs.length > 120) erros.obs = 'erroObsCusto';
+    else if (f.tipo === 'outro' && obs.length < 3) erros.obs = 'erroObsOutroCusto';
+    return { erros, custo: { tipo: f.tipo, data, valor, obs } };
+  }
+
+  // custo fixo da empresa: nome + valor por mês
+  function validarFixo(f) {
+    const erros = {};
+    const nome = String(f.nome || '').trim().replace(/\s+/g, ' ');
+    if (nome.length < 2 || nome.length > 40) erros.nome = 'erroNomeFixo';
+    const valor = validarDinheiro(f.valor, 1, 100000000);
+    if (valor === null) erros.valor = 'erroValorCusto';
+    return { erros, fixo: { nome, valor } };
+  }
+
+  // meses no formato "AAAA-MM"
+  const indiceMes = (mes) => Number(mes.slice(0, 4)) * 12 + Number(mes.slice(5, 7)) - 1;
+  function somarMes(mes, n) {
+    const i = indiceMes(mes) + n;
+    return `${Math.floor(i / 12)}-${doisDig((i % 12) + 1)}`;
+  }
+
+  // quanto de um custo lançado cai no mês: anual = 1/12 (o resto dos centavos vai nos primeiros meses); o resto, no mês da data
+  function custoCobreMes(c, mes) {
+    if (!CUSTOS_ANUAIS.includes(c.tipo)) return c.data.slice(0, 7) === mes;
+    const k = indiceMes(mes) - indiceMes(c.data.slice(0, 7));
+    return k >= 0 && k <= 11;
+  }
+  function custoNoMes(c, mes) {
+    if (!custoCobreMes(c, mes)) return 0;
+    if (!CUSTOS_ANUAIS.includes(c.tipo)) return c.valor;
+    const k = indiceMes(mes) - indiceMes(c.data.slice(0, 7));
+    return Math.floor(c.valor / 12) + (k < c.valor % 12 ? 1 : 0);
+  }
+
+  const totalFixos = (fixos) => fixos.reduce((s, f) => s + f.valor, 0);
+
+  // custo fixo da empresa dividido em partes iguais entre os carros ativos (os que estão na frota)
+  function fixoPorCarro(estado) {
+    const n = estado.unidades.length;
+    return n ? Math.round(totalFixos(estado.fixos) / n) : 0;
+  }
+
+  /* margem de um carro no mês: receita das reservas que começam no mês (cancelada conta só a taxa de cancelamento)
+     − manutenção do mês − custos lançados (ipva/seguro em 1/12) − parte do fixo.
+     Sem IPVA lançado cobrindo o mês e com FIPE, entra o IPVA estimado (FIPE × alíquota de locadora ÷ 12). */
+  function margemCarro(estado, u, mes) {
+    const doMes = (d) => d.slice(0, 7) === mes;
+    const res = estado.reservas.filter((r) => r.unidade === u.id && doMes(r.ini));
+    const valendo = res.filter((r) => r.status !== 'cancelada');
+    const receita = res.reduce((s, r) => s + (r.status === 'cancelada' ? r.multa || 0 : r.total), 0);
+    const manutencao = estado.manutencoes.filter((m) => m.unidade === u.id && doMes(m.data)).reduce((s, m) => s + m.valor, 0);
+    const meus = estado.custos.filter((c) => c.unidade === u.id);
+    const custos = meus.reduce((s, c) => s + custoNoMes(c, mes), 0);
+    const temIpva = meus.some((c) => c.tipo === 'ipva' && custoCobreMes(c, mes));
+    const ipvaEstimado = !temIpva && u.fipe > 0 ? Math.round(ipva(u.fipe, estado.config.aliqLocadora) / 12) : 0;
+    const fixo = fixoPorCarro(estado);
+    const custoCarro = manutencao + custos + ipvaEstimado;
+    const lucro = receita - custoCarro - fixo;
+    return {
+      unidade: u.id, receita, reservas: valendo.length, diarias: valendo.reduce((s, r) => s + diarias(r.ini, r.fim), 0),
+      manutencao, custos, ipvaEstimado, fixo, custoCarro, lucro, margem: receita > 0 ? Math.round((lucro * 1000) / receita) / 10 : null,
+    };
+  }
+
+  // margem da frota no mês, com os carros do mais lucrativo pro menos
+  function margemFrota(estado, mes) {
+    const carros = estado.unidades.map((u) => margemCarro(estado, u, mes)).sort((a, b) => b.lucro - a.lucro);
+    const soma = (k) => carros.reduce((s, c) => s + c[k], 0);
+    const receita = soma('receita'), lucro = soma('lucro');
+    return { carros, receita, custoCarro: soma('custoCarro'), fixo: soma('fixo'), lucro, margem: receita > 0 ? Math.round((lucro * 1000) / receita) / 10 : null };
+  }
+
+  /* simulador: com n carros, o fixo da empresa se divide por mais gente.
+     o: { n, fixosMes, custoCarroMes (sem o fixo), diariaMedia, fipeMedio, aliqLocadora, aliqParticular } */
+  function simular(o) {
+    const fixo = o.n > 0 ? Math.round(o.fixosMes / o.n) : 0;
+    const custoPorCarro = o.custoCarroMes + fixo;
+    const ipvaLocadora = ipva(o.fipeMedio, o.aliqLocadora), ipvaParticular = ipva(o.fipeMedio, o.aliqParticular);
+    return {
+      n: o.n, fixoPorCarro: fixo, custoPorCarro, ipvaLocadora, ipvaParticular,
+      economiaAnual: (ipvaParticular - ipvaLocadora) * o.n,
+      equilibrio: o.diariaMedia > 0 ? Math.ceil(custoPorCarro / o.diariaMedia) : null, // diárias por mês pra cada carro se pagar
+    };
   }
 
   function ms(s) {
@@ -755,6 +912,8 @@ fieldset.grupo .opcao + .opcao { margin-top: 0; }
     checkinFeito, pontosDe, fidelidade, estadoCarro, indicadores,
     TIPOS_MANUTENCAO, normalizarPlaca, placaValida, validarValor, validarCarro, validarManutencao, validarIntervalo,
     situacaoTroca, gastoManutencao,
+    TIPOS_CUSTO, CUSTOS_ANUAIS, validarDinheiro, validarFipe, validarAliquota, ipva, validarCusto, validarFixo, somarMes,
+    custoNoMes, custoCobreMes, totalFixos, fixoPorCarro, margemCarro, margemFrota, simular,
   };
 });
 
@@ -793,26 +952,42 @@ fieldset.grupo .opcao + .opcao { margin-top: 0; }
 
   // placas no padrão Mercosul, inventadas; situacao: ok | vistoria | manutencao
   // oleoKm / filtroKm = de quantos em quantos km trocar; foto = null até o dono pôr uma
+  // fipe = valor FIPE aproximado em reais (fictício, na faixa de BH em 2026), guardado em centavos; 0 = não informado
   const UNIDADES = [
-    ['u1', 'mobi', 'VLT2A41', 18240, 'ok', 2023],
-    ['u2', 'hb20', 'VLT3B07', 26105, 'ok', 2022],
-    ['u3', 'onix', 'VLT5C90', 12877, 'ok', 2024],
-    ['u4', 'onix', 'VLT5D44', 31420, 'ok', 2022],
-    ['u5', 'tcross', 'VLT7E12', 9630, 'ok', 2024],
-    ['u6', 'compass', 'VLT7F88', 15012, 'ok', 2024],
-    ['u7', 'corolla', 'VLT9G05', 22760, 'ok', 2023],
-    ['u8', 'strada', 'VLT8H36', 27344, 'ok', 2023],
-    ['u9', 'spin', 'VLT6J73', 19981, 'ok', 2023],
-    ['u10', 'mobi', 'VLT4K50', 35118, 'manutencao', 2021],
-    ['u11', 'hb20', 'VLT3M61', 21390, 'vistoria', 2023],
-    ['u12', 'tcross', 'VLT7N56', 14290, 'ok', 2024],
-    ['u13', 'strada', 'VLT8P19', 30775, 'ok', 2022],
-    ['u14', 'onix', 'VLT5Q22', 8120, 'ok', 2025],
-    ['u15', 'corolla', 'VLT9R40', 11563, 'ok', 2024],
-    ['u16', 'compass', 'VLT7T01', 16642, 'ok', 2024],
-    ['u17', 'hb20', 'VLT3U14', 21008, 'ok', 2023],
-    ['u18', 'spin', 'VLT6V27', 24410, 'ok', 2022],
-  ].map(([id, modelo, placa, km, situacao, ano]) => ({ id, modelo, placa, local: 'bh', km, situacao, ano, oleoKm: 10000, filtroKm: 20000, foto: null }));
+    ['u1', 'mobi', 'VLT2A41', 18240, 'ok', 2023, 62000],
+    ['u2', 'hb20', 'VLT3B07', 26105, 'ok', 2022, 71500],
+    ['u3', 'onix', 'VLT5C90', 12877, 'ok', 2024, 94000],
+    ['u4', 'onix', 'VLT5D44', 31420, 'ok', 2022, 79000],
+    ['u5', 'tcross', 'VLT7E12', 9630, 'ok', 2024, 136000],
+    ['u6', 'compass', 'VLT7F88', 15012, 'ok', 2024, 172000],
+    ['u7', 'corolla', 'VLT9G05', 22760, 'ok', 2023, 146000],
+    ['u8', 'strada', 'VLT8H36', 27344, 'ok', 2023, 104000],
+    ['u9', 'spin', 'VLT6J73', 19981, 'ok', 2023, 108000],
+    ['u10', 'mobi', 'VLT4K50', 35118, 'manutencao', 2021, 51000],
+    ['u11', 'hb20', 'VLT3M61', 21390, 'vistoria', 2023, 77500],
+    ['u12', 'tcross', 'VLT7N56', 14290, 'ok', 2024, 136000],
+    ['u13', 'strada', 'VLT8P19', 30775, 'ok', 2022, 96000],
+    ['u14', 'onix', 'VLT5Q22', 8120, 'ok', 2025, 101000],
+    ['u15', 'corolla', 'VLT9R40', 11563, 'ok', 2024, 158000],
+    ['u16', 'compass', 'VLT7T01', 16642, 'ok', 2024, 172000],
+    ['u17', 'hb20', 'VLT3U14', 21008, 'ok', 2023, 77500],
+    ['u18', 'spin', 'VLT6V27', 24410, 'ok', 2022, 97000],
+  ].map(([id, modelo, placa, km, situacao, ano, fipe]) => ({ id, modelo, placa, local: 'bh', km, situacao, ano, oleoKm: 10000, filtroKm: 20000, foto: null, fipe: fipe * 100 }));
+
+  // alíquota de IPVA em centésimos de % (100 = 1%): locadora 1%, particular 4% só pra comparar; o dono muda em Configurações
+  const CONFIG_PADRAO = { aliqLocadora: 100, aliqParticular: 400 };
+
+  // custos fixos mensais da empresa (fictícios), em centavos; o app divide em partes iguais entre os carros ativos
+  const FIXOS = [
+    ['Contador', 65000], ['Aluguel do pátio', 320000], ['Sistema e app', 19990],
+    ['Taxas bancárias e maquininha', 24000], ['Internet e telefone', 14990],
+  ].map(([nome, valor], i) => ({ id: 'fx' + (i + 1), nome, valor }));
+
+  // parcela mensal de financiamento dos carros financiados (fictício)
+  const PARCELAS = { u5: 219000, u6: 289000, u12: 219000, u14: 159000, u15: 265000, u16: 289000 };
+  const RASTREADOR = 6990;
+  const NOMES_HISTORICO = ['Ana Ribeiro', 'Lucas Martins', 'Beatriz Souza', 'Gabriel Costa', 'Larissa Moreira', 'Diego Carvalho',
+    'Camila Rocha', 'Felipe Duarte', 'Renata Pires', 'Thiago Barros', 'Aline Teixeira', 'Rodrigo Campos'];
 
   // copart = coparticipação (quanto o cliente paga, no máximo, se o carro for danificado); caucao = pré-autorização no cartão
   const PLANOS = [
@@ -1217,6 +1392,118 @@ fieldset.grupo .opcao + .opcao { margin-top: 0; }
     erroValorManut: 'Valor em reais, de 0 a R$ 100.000 (ex.: 250,90).',
     erroObsLonga: 'A observação pode ter no máximo 200 letras.',
     erroObsOutra: 'Diga na observação qual foi a manutenção.',
+    // ficha do carro, custos, margem, simulador e configurações (dono)
+    abaFicha: 'Ficha do carro',
+    abaMargem: 'Custos e margem',
+    abaSimulador: 'Simulador',
+    abaConfig: 'Configurações',
+    semCarros: 'Nenhum carro na frota. Cadastre um na aba Frota.',
+    carroAnterior: 'Carro anterior',
+    carroSeguinte: 'Próximo carro',
+    escolherCarro: 'Escolher carro',
+    mesEscolhido: 'Mês',
+    mesAnterior: 'Mês anterior',
+    mesSeguinte: 'Mês seguinte',
+    voltarMesAtual: 'Voltar pro mês atual',
+    mesEmAndamento: 'Mês em andamento: a receita ainda está entrando. Compare com o mês anterior (‹).',
+    fichaFipe: 'Valor FIPE: {v}',
+    fichaSemFipe: 'Valor FIPE não informado. Ponha em Editar para o app calcular o IPVA.',
+    fichaMargem: 'Resultado do mês',
+    fichaReservas: 'Reservas que começam no mês',
+    fichaSemReservas: 'Nenhuma reserva deste carro começa neste mês.',
+    fichaCustos: 'Custos lançados',
+    fichaIpva: 'IPVA pela FIPE: {l} por ano como locadora ({a}%) e {p} como particular ({b}%).',
+    fichaManut: 'Manutenção e próxima troca',
+    semCustos: 'Nenhum custo lançado para este carro.',
+    custoAnualTxt: 'Anual: entra {v} por mês na margem, durante 12 meses',
+    lancarCusto: 'Lançar custo',
+    tc_ipva: 'IPVA',
+    tc_seguro: 'Seguro',
+    tc_rastreador: 'Rastreador',
+    tc_parcela: 'Parcela / financiamento',
+    tc_licenciamento: 'Licenciamento',
+    tc_multa: 'Multa',
+    tc_outro: 'Outros',
+    mgReceita: 'Receita ({n} reservas, {d} diárias)',
+    mgReceitaUma: 'Receita (1 reserva, {d} diárias)',
+    mgManutencao: 'Manutenção',
+    mgCustos: 'Custos lançados (IPVA e seguro em 1/12)',
+    mgIpvaEstimado: 'IPVA estimado pela FIPE (1/12)',
+    mgFixo: 'Parte do custo fixo da empresa',
+    mgLucro: 'Lucro',
+    mgMargem: 'Margem',
+    mgDiarias: '{n} diárias',
+    mgReceitaFrota: 'Receita da frota',
+    mgCustosFrota: 'Custos dos carros',
+    mgFixoFrota: 'Custo fixo',
+    mgMelhor: 'Mais lucro: {p} ({v})',
+    mgPior: 'Menos lucro: {p} ({v})',
+    mgAjuda: 'Receita = reservas que começam no mês (cancelada conta só a taxa de cancelamento). IPVA e seguro entram 1/12 por mês; sem IPVA lançado, entra o estimado pela FIPE. O custo fixo é dividido igual entre os carros ativos. Toque na placa para abrir a ficha.',
+    mgColReceita: 'Receita',
+    mgColCustos: 'Custos do carro',
+    mgColFixo: 'Fixo',
+    fixosTitulo: 'Custos fixos da empresa (por mês)',
+    fixosAjuda: 'Total de {v} por mês, dividido igual entre os {n} carros ativos: {p} por carro.',
+    fixoNome: 'Nome do custo fixo',
+    fixoValor: 'Valor por mês (R$)',
+    fixoValorDe: 'Valor por mês de {n}',
+    fixoNovoNome: 'Novo custo fixo (ex.: contador)',
+    fixoAdicionar: 'Adicionar',
+    fixoSalvo: '{n}: {v} por mês',
+    fixoApagado: 'Custo fixo apagado',
+    erroNomeFixo: 'Dê um nome de 2 a 40 letras.',
+    simAjuda: 'Veja o que muda quando a frota cresce: o custo fixo da empresa se divide por mais carros. Os valores abaixo começam com os da sua frota hoje, e você pode mudar.',
+    simQuantos: 'Quantidade de carros',
+    simNCarros: '{n} carros',
+    simFrotaHoje: 'Hoje a frota tem {n} carros.',
+    erroSimN: 'Use de 1 a 500 carros.',
+    simCusto: 'Custo mensal de cada carro, sem o fixo (R$)',
+    simCustoAjuda: 'Média da sua frota em {m}: {v}.',
+    simDiaria: 'Diária média (R$)',
+    simDiariaAjuda: 'Média das diárias da sua frota: {v}.',
+    simFipe: 'Valor FIPE médio (R$)',
+    simFipeAjuda: 'Média da FIPE dos seus carros: {v}.',
+    simUsarFrota: 'Usar o da frota',
+    simFixoPorCarro: 'Custo fixo por carro',
+    simFixoTotal: 'de {v} por mês no total',
+    simCustoPorCarro: 'Custo total por carro/mês',
+    simEconomia: 'Economia de IPVA por ano ({n} carros)',
+    simIpvaCarro: 'Por carro: {l} como locadora × {p} como particular',
+    simEquilibrio: 'Ponto de equilíbrio',
+    simDiariasMes: '{n} diárias/mês',
+    simOcupacao: '{p}% dos dias do mês, por carro',
+    simColCarros: 'Frota',
+    simColEconomia: 'Economia de IPVA/ano',
+    simHoje: 'sua frota hoje',
+    simConta: 'Como a conta é feita: custo por carro = custo do carro + custo fixo ÷ número de carros. Ponto de equilíbrio = custo por carro ÷ diária média, arredondado para cima. Economia de IPVA = FIPE média × (particular {b}% − locadora {a}%) × número de carros. O custo fixo total fica o mesmo quando a frota cresce.',
+    cfgIpvaTitulo: 'Alíquota do IPVA',
+    cfgIpvaAjuda: 'IPVA calculado = valor FIPE do carro × alíquota. Em MG, carro de locadora costuma pagar 1% e carro particular 4%. Confirme a alíquota certa com o contador.',
+    cfgAliqLocadora: 'Alíquota de locadora (%)',
+    cfgAliqLocadoraAjuda: 'Usada no IPVA calculado, no IPVA estimado da margem e no simulador.',
+    cfgAliqParticular: 'Alíquota de particular (%), só para comparar',
+    cfgAliqParticularAjuda: 'Usada na comparação da ficha e na economia do simulador.',
+    cfgExemplo: 'Exemplo: carro de FIPE R$ 100.000 paga {l} por ano como locadora e {p} como particular.',
+    erroAliquota: 'Use de 0 a 10, com até 2 casas (ex.: 1 ou 1,5).',
+    aliquotaSalva: 'Alíquota salva: {a}%',
+    fc_fipe: 'Valor FIPE (R$, opcional)',
+    fc_fipeAjuda: 'Ex.: 62.000. Serve para calcular o IPVA (FIPE × {a}%).',
+    erroFipe: 'Valor FIPE de R$ 1.000 a R$ 5.000.000 (ex.: 62.000), ou deixe em branco.',
+    fu_carro: 'Carro',
+    fu_tipo: 'Tipo de custo',
+    fu_data: 'Data',
+    fu_valor: 'Valor (R$)',
+    fu_obs: 'Observação',
+    fu_obsAjuda: 'Em "Outros", diga o que foi.',
+    fu_salvar: 'Salvar custo',
+    fuIpvaCalc: 'IPVA calculado: {v} (FIPE {f} × {a}%).',
+    fuIpvaSemFipe: 'Este carro está sem valor FIPE; ponha em Editar para o app calcular o IPVA.',
+    fuAnualAjuda: 'Lance o valor do ano: a margem divide por 12.',
+    erroTipoCusto: 'Escolha o tipo de custo.',
+    erroValorCusto: 'Valor em reais, de R$ 0,01 a R$ 1.000.000 (ex.: 1.180,50).',
+    erroObsCusto: 'A observação pode ter no máximo 120 letras.',
+    erroObsOutroCusto: 'Diga na observação qual foi o custo.',
+    custoSalvo: 'Custo lançado: {p}, {v}',
+    custoApagado: 'Custo apagado',
   };
 
   function novaReserva(L, o) {
@@ -1255,6 +1542,26 @@ fieldset.grupo .opcao + .opcao { margin-top: 0; }
       { codigo: 'M4PQW', unidade: 'u15', nome: 'Fulano de Tal', ini: d(-90, '10:00'), fim: d(-85, '10:00'), status: 'devolvida', minha: true, checkin: true,
         vistoria: { ret: v([], 8, 10700), dev: v([], 8, 11563) } },
     ].map((o) => novaReserva(L, o));
+    // histórico de locações já concluídas dos últimos ~3 meses, pra ficha e margem terem receita de verdade.
+    // sorteio com semente fixa: a demonstração sai igual toda vez
+    let semente = 7;
+    const sortear = () => { semente = (semente * 16807) % 2147483647; return semente / 2147483647; };
+    const codigos = reservas.map((r) => r.codigo), historico = [];
+    UNIDADES.forEach((u, i) => {
+      let fim = -2 - (i % 3);
+      for (let k = 0; fim > -95; k++) {
+        const ini = fim - (2 + ((i * 7 + k * 3) % 5));
+        const o = { unidade: u.id, ini: d(ini, '10:00'), fim: d(fim, '09:00') };
+        const ocupado = [...reservas, ...historico].some((r) => r.unidade === u.id && L.conflita(o.ini, o.fim, r.ini, r.fim));
+        if (!ocupado) {
+          const codigo = L.novoCodigo(codigos, sortear);
+          codigos.push(codigo);
+          historico.push(novaReserva(L, { ...o, codigo, nome: NOMES_HISTORICO[(i + k) % NOMES_HISTORICO.length], status: 'devolvida', checkin: true, plano: k % 3 === 0 ? 'completa' : 'basica' }));
+        }
+        fim = ini - (1 + ((i * 5 + k) % 4));
+      }
+    });
+    reservas.push(...historico);
     const tarifas = {};
     for (const m of MODELOS) tarifas[m.id] = m.tarifa;
     // manutenções de exemplo (valores fictícios, em centavos); dá pra ver um carro perto e dois passados do limite
@@ -1264,15 +1571,32 @@ fieldset.grupo .opcao + .opcao { margin-top: 0; }
       ['u4', 'oleo', -150, 21000, 29990, ''], ['u4', 'filtro', -150, 21000, 6990, 'Filtro de óleo e de ar'],
       ['u10', 'oleo', -200, 24800, 25900, ''], ['u10', 'outra', -2, 34900, 42000, 'Pastilhas de freio dianteiras'],
     ].map(([unidade, tipo, dia, km, valor, obs], i) => ({ id: 'mt' + (i + 1), unidade, tipo, data: L.somarDias(hoje, dia), km, valor, obs }));
+    // custos de exemplo por carro: IPVA de locadora (pago em janeiro), seguro anual, rastreador e parcelas dos últimos 4 meses
+    const ano = Number(hoje.slice(0, 4)), mesAtual = hoje.slice(0, 7);
+    const dataIpva = hoje >= `${ano}-01-20` ? `${ano}-01-20` : `${ano - 1}-01-20`;
+    const custos = [];
+    const lancar = (unidade, tipo, data, valor, obs) => custos.push({ id: 'cu' + (custos.length + 1), unidade, tipo, data, valor, obs: obs || '' });
+    UNIDADES.forEach((u, i) => {
+      lancar(u.id, 'ipva', dataIpva, L.ipva(u.fipe, CONFIG_PADRAO.aliqLocadora));
+      lancar(u.id, 'seguro', L.somarDias(hoje, -(40 + i * 9)), Math.round((u.fipe * 0.06) / 1000) * 1000, 'Seguro de frota, anual');
+      for (let k = 0; k < 4; k++) {
+        const mes = L.somarMes(mesAtual, -k), data = k === 0 ? `${mes}-01` : `${mes}-05`;
+        lancar(u.id, 'rastreador', data, RASTREADOR);
+        if (PARCELAS[u.id]) lancar(u.id, 'parcela', data, PARCELAS[u.id]);
+      }
+    });
+    lancar('u13', 'multa', L.somarDias(hoje, -20), 19523, 'Estacionamento irregular');
+    lancar('u7', 'outro', L.somarDias(hoje, -12), 35000, 'Higienização interna completa');
     return {
-      versao: 3, semeadoEm: hoje,
+      versao: 4, semeadoEm: hoje,
       modelos: MODELOS.map(({ tarifa, ...m }) => ({ ...m })),
       unidades: UNIDADES.map((u) => ({ ...u })), removidos: [],
-      reservas, tarifas, manutencoes,
+      reservas, tarifas, manutencoes, custos,
+      fixos: FIXOS.map((f) => ({ ...f })), config: { ...CONFIG_PADRAO },
     };
   }
 
-  return { CONFIG, LOCAIS, CATEGORIAS, DESENHO_POR_CATEGORIA, MODELOS, UNIDADES, PLANOS, EXTRAS, AVARIAS, FOTOS, TEXTOS, semear };
+  return { CONFIG, LOCAIS, CATEGORIAS, DESENHO_POR_CATEGORIA, MODELOS, UNIDADES, PLANOS, EXTRAS, AVARIAS, FOTOS, TEXTOS, CONFIG_PADRAO, FIXOS, semear };
 });
 
 </script>
@@ -1443,7 +1767,11 @@ fieldset.grupo .opcao + .opcao { margin-top: 0; }
     modeloId: null, viagemId: null, confirmadaId: null, editandoId: null, foiAlteracao: false,
     rascunho: null, abaPainel: 'hoje', lojaPainel: 'todas', filtroReservas: 'ativas', modal: null, destaque: null,
     certezaReinicio: false, erroTarifa: {}, erroIntervalo: {}, certezaManut: null,
+    // ficha, custos, margem e simulador (dono)
+    fichaId: null, mes: hojeTxt().slice(0, 7), sim: simPadrao(), novoFixo: { nome: '', valor: '' }, erroNovoFixo: {},
+    erroFixo: {}, erroConfig: {}, certezaCusto: null, certezaFixo: null,
   };
+  function simPadrao() { return { n: 10, custo: null, diaria: null, fipe: null, erros: {} }; }
 
   /* ---------- guardar no aparelho ---------- */
   function salvoValido(s) {
@@ -1454,19 +1782,25 @@ fieldset.grupo .opcao + .opcao { margin-top: 0; }
         && D.CATEGORIAS.includes(m.cat) && ['hatch', 'sedan', 'suv', 'picape', 'van'].includes(m.tipo) && /^#[0-9A-Fa-f]{6}$/.test(m.cor)
         && (m.cambio === undefined || ['manual', 'automatico'].includes(m.cambio))
         && ['lugares', 'portas', 'malas'].every((k) => m[k] === undefined || int(m[k]));
-      if (s.versao !== 3 || !Array.isArray(s.modelos) || !s.modelos.every(modeloOk)) return false;
+      if (s.versao !== 4 || !Array.isArray(s.modelos) || !s.modelos.every(modeloOk)) return false;
       const modelos = s.modelos.map((m) => m.id), locais = D.LOCAIS.map((l) => l.id), zonas = C.ZONAS.map((z) => z.id);
       const planos = D.PLANOS.map((p) => p.id), extras = D.EXTRAS.map((e) => e.id);
       const num = Number.isFinite;
       const fotoOk = (f) => f === null || (typeof f === 'string' && f.length <= 800000 && /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/]+=*$/.test(f));
       const unidadeOk = (u) => /^u\d+$/.test(u.id) && modelos.includes(u.modelo) && locais.includes(u.local)
         && ['ok', 'vistoria', 'manutencao'].includes(u.situacao) && typeof u.placa === 'string' && u.placa.length <= 10 && num(u.km)
-        && int(u.ano) && int(u.oleoKm) && u.oleoKm > 0 && int(u.filtroKm) && u.filtroKm > 0 && fotoOk(u.foto);
+        && int(u.ano) && int(u.oleoKm) && u.oleoKm > 0 && int(u.filtroKm) && u.filtroKm > 0 && fotoOk(u.foto)
+        && (u.fipe === undefined || (int(u.fipe) && u.fipe >= 0));
       const frota = [...s.unidades, ...s.removidos];
+      const dataOk = (d) => typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d) && !Number.isNaN(L.ms(`${d}T00:00`));
       const manutOk = (m) => /^mt\d+$/.test(m.id) && frota.some((u) => u.id === m.unidade) && L.TIPOS_MANUTENCAO.includes(m.tipo)
-        && /^\d{4}-\d{2}-\d{2}$/.test(m.data) && !Number.isNaN(L.ms(`${m.data}T00:00`))
-        && int(m.km) && int(m.valor) && typeof m.obs === 'string' && m.obs.length <= 200;
+        && dataOk(m.data) && int(m.km) && int(m.valor) && typeof m.obs === 'string' && m.obs.length <= 200;
       if (!s.unidades.every(unidadeOk) || !s.removidos.every(unidadeOk) || !s.manutencoes.every(manutOk)) return false;
+      const custoOk = (c) => /^cu\d+$/.test(c.id) && frota.some((u) => u.id === c.unidade) && L.TIPOS_CUSTO.includes(c.tipo)
+        && dataOk(c.data) && int(c.valor) && c.valor >= 0 && typeof c.obs === 'string' && c.obs.length <= 120;
+      const fixoOk = (f) => /^fx\d+$/.test(f.id) && typeof f.nome === 'string' && f.nome.length >= 1 && f.nome.length <= 40 && int(f.valor) && f.valor >= 0;
+      const aliqOk = (a) => int(a) && a >= 0 && a <= 1000;
+      if (!s.custos.every(custoOk) || !s.fixos.every(fixoOk) || !aliqOk(s.config.aliqLocadora) || !aliqOk(s.config.aliqParticular)) return false;
       const pinOk = (p) => num(p.x) && num(p.y) && zonas.includes(p.zona) && D.AVARIAS.includes(p.tipo);
       const vistOk = (v) => !v || (v.pins.every(pinOk) && num(v.comb) && num(v.km) && v.fotos.every((f) => D.FOTOS.includes(f)));
       const assinOk = (a) => a === null
@@ -1497,8 +1831,11 @@ fieldset.grupo .opcao + .opcao { margin-top: 0; }
     try {
       const bruto = localStorage.getItem(CHAVE);
       if (bruto) {
-        const salvo = JSON.parse(bruto);
+        let salvo = JSON.parse(bruto);
+        if (salvo && salvo.versao === 3) salvo = migrarDaV3(salvo, hoje);
         if (salvoValido(salvo)) {
+          // carro cadastrado antes do campo FIPE: fica "não informado"
+          for (const u of [...salvo.unidades, ...salvo.removidos]) if (u.fipe === undefined) u.fipe = 0;
           if (salvo.semeadoEm === hoje) return salvo;
           log('dia novo: frota, preços e manutenções continuam; as reservas de exemplo recomeçam a partir de hoje');
           return virarDia(salvo, hoje);
@@ -1511,12 +1848,25 @@ fieldset.grupo .opcao + .opcao { margin-top: 0; }
     return D.semear(L, hoje);
   }
 
-  // o que o dono cadastrou (carros, preços, manutenções) não pode sumir na virada do dia
+  /* salvo da versão anterior (sem custos): mantém tudo e só acrescenta o que é novo.
+     Carro de exemplo que continua com a mesma placa ganha a FIPE e os custos de exemplo; carro do dono fica com FIPE em branco. */
+  function migrarDaV3(s, hoje) {
+    const novo = D.semear(L, hoje);
+    const doExemplo = (u) => !!u && D.UNIDADES.some((x) => x.id === u.id && x.placa === u.placa);
+    const frota = [...(Array.isArray(s.unidades) ? s.unidades : []), ...(Array.isArray(s.removidos) ? s.removidos : [])];
+    for (const u of frota) if (u && u.fipe === undefined) u.fipe = doExemplo(u) ? D.UNIDADES.find((x) => x.id === u.id).fipe : 0;
+    const ativosDoExemplo = (Array.isArray(s.unidades) ? s.unidades : []).filter(doExemplo).map((u) => u.id);
+    log('atualizando os dados salvos para a versão com custos e margem; nada do que foi cadastrado se perde');
+    return { ...s, versao: 4, custos: novo.custos.filter((c) => ativosDoExemplo.includes(c.unidade)), fixos: novo.fixos, config: novo.config };
+  }
+
+  // o que o dono cadastrou (carros, preços, manutenções, custos, fixos, alíquotas) não pode sumir na virada do dia
   function virarDia(salvo, hoje) {
     const novo = D.semear(L, hoje);
     const carroAindaIgual = (r) => salvo.unidades.some((u) => u.id === r.unidade && u.modelo === r.modelo);
     return { ...novo, modelos: salvo.modelos, unidades: salvo.unidades, removidos: salvo.removidos, tarifas: salvo.tarifas,
-      manutencoes: salvo.manutencoes, reservas: novo.reservas.filter(carroAindaIgual) };
+      manutencoes: salvo.manutencoes, custos: salvo.custos, fixos: salvo.fixos, config: salvo.config,
+      reservas: novo.reservas.filter(carroAindaIgual) };
   }
 
   function salvar() {
@@ -2203,9 +2553,216 @@ fieldset.grupo .opcao + .opcao { margin-top: 0; }
       <div class="manut-lista">${lista.map(cartaoManut).join('')}</div>`;
   }
 
+  /* ---------- ficha do carro, custos, margem, simulador e configurações (dono) ---------- */
+  const mesAtual = () => hojeTxt().slice(0, 7);
+  const fmtMes = new Intl.DateTimeFormat(LOCALE, { month: 'long', year: 'numeric', timeZone: 'UTC' });
+  const nomeMes = (mes) => fmtMes.format(L.ms(`${mes}-01T00:00`));
+  const pctTxt = (aliq) => (aliq / 100).toLocaleString(LOCALE, { maximumFractionDigits: 2 });
+  const margemTxt = (m) => (m === null ? '–' : `${m.toLocaleString(LOCALE, { maximumFractionDigits: 1 })}%`);
+  const moedaSinal = (c) => `<span class="${c < 0 ? 'neg' : ''}">${esc(moeda(c || 0))}</span>`; // c || 0: sem "-R$ 0,00"
+  const nomeCarro = (u) => `${u.placa} · ${modelo(u.modelo).nome}`;
+  const unidadeFicha = () => E.unidades.find((u) => u.id === UI.fichaId) || E.unidades[0];
+  const fotoUnidade = (u) => {
+    const m = modelo(u.modelo);
+    return u.foto ? `<img class="carro foto-real" src="${esc(u.foto)}" alt="${esc(m.nome)}">` : C.lateral(m.tipo, m.cor, esc(m.nome));
+  };
+
+  function mesNav() {
+    const atual = UI.mes === mesAtual();
+    return `<div class="mes-nav" role="group" aria-label="${t('mesEscolhido')}">
+        <button class="fino" data-acao="mes" data-x="-1" aria-label="${t('mesAnterior')}">‹</button>
+        <strong>${esc(nomeMes(UI.mes))}</strong>
+        <button class="fino" data-acao="mes" data-x="1" aria-label="${t('mesSeguinte')}">›</button>
+        ${atual ? '' : `<button class="fino" data-acao="mes" data-x="0">${t('voltarMesAtual')}</button>`}
+      </div>
+      ${atual ? `<p class="nota">${t('mesEmAndamento')}</p>` : ''}`;
+  }
+
+  function contaMargem(mg) {
+    const linhas = [
+      [t(mg.reservas === 1 ? 'mgReceitaUma' : 'mgReceita', { n: mg.reservas, d: mg.diarias }), mg.receita],
+      [t('mgManutencao'), -mg.manutencao],
+      [t('mgCustos'), -mg.custos],
+      ...(mg.ipvaEstimado ? [[t('mgIpvaEstimado'), -mg.ipvaEstimado]] : []),
+      [t('mgFixo'), -mg.fixo],
+    ];
+    return `<dl class="conta">${linhas.map(([r, v]) => `<div><dt>${esc(r)}</dt><dd>${moedaSinal(v)}</dd></div>`).join('')}
+      <div class="conta-total"><dt>${t('mgLucro')}</dt><dd>${moedaSinal(mg.lucro)}</dd></div>
+      <div><dt>${t('mgMargem')}</dt><dd>${esc(margemTxt(mg.margem))}</dd></div></dl>`;
+  }
+
+  function listaCustos(u) {
+    const lista = E.custos.filter((c) => c.unidade === u.id).sort((a, b) => b.data.localeCompare(a.data) || b.id.localeCompare(a.id));
+    if (!lista.length) return `<p class="nota">${t('semCustos')}</p>`;
+    return `<ul class="manut-regs">${lista.map((c) => `<li><span><strong>${t('tc_' + c.tipo)}</strong> · ${esc(fmtDataAno.format(L.ms(`${c.data}T00:00`)))} · ${esc(moeda(c.valor))}
+        ${L.CUSTOS_ANUAIS.includes(c.tipo) ? `<small>${esc(t('custoAnualTxt', { v: moeda(Math.round(c.valor / 12)) }))}</small>` : ''}${c.obs ? `<small>${esc(c.obs)}</small>` : ''}</span>
+      <button class="fino" data-acao="apagarCusto" data-x="${c.id}">${t(UI.certezaCusto === c.id ? 'apagarManutCerteza' : 'apagarManut')}</button></li>`).join('')}</ul>`;
+  }
+
+  function fichaCarro() {
+    const u = unidadeFicha();
+    if (!u) return `<p class="vazio">${t('semCarros')}</p>`;
+    const n = E.unidades.length, i = E.unidades.indexOf(u), m = modelo(u.modelo), estado = L.estadoCarro(E, u);
+    const ant = E.unidades[(i - 1 + n) % n], prox = E.unidades[(i + 1) % n];
+    const mg = L.margemCarro(E, u, UI.mes);
+    const res = E.reservas.filter((r) => r.unidade === u.id && r.ini.slice(0, 7) === UI.mes).sort((a, b) => L.ms(b.ini) - L.ms(a.ini));
+    const troca = trocasDaFrota().find((x) => x.u === u);
+    const cfg = E.config;
+    return `<div class="ficha-nav">
+        <button class="fino" id="ficha-ant" data-acao="verFicha" data-x="${ant.id}" aria-label="${t('carroAnterior')}">‹</button>
+        <select id="ficha-carro" data-campo="ficha" aria-label="${t('escolherCarro')}">${opcoes(E.unidades.map((x) => [x.id, nomeCarro(x)]), u.id)}</select>
+        <button class="fino" id="ficha-prox" data-acao="verFicha" data-x="${prox.id}" aria-label="${t('carroSeguinte')}">›</button>
+        <span class="nota">${i + 1} / ${n}</span>
+      </div>
+      <article class="ficha">
+        <div class="ficha-cab">
+          <div class="ficha-foto">${fotoUnidade(u)}</div>
+          <div class="ficha-dados">${placaHTML(u.placa)}<strong>${esc(m.nome)}</strong>
+            <small>${t('cat_' + m.cat)} · ${esc(u.ano)} · ${esc(t('kmAtual', { n: fmtNum(u.km) }))}</small>
+            <small>${u.fipe ? esc(t('fichaFipe', { v: moeda(u.fipe) })) : t('fichaSemFipe')}</small>
+            <span class="acoes-linha"><span class="selo car-${estado}">${t('car_' + estado)}</span><button class="fino" data-acao="editarCarro" data-x="${u.id}">${t('editarCarro')}</button></span>
+          </div>
+        </div>
+        ${mesNav()}
+        <section class="bloco"><h3 class="rotulo">${t('fichaMargem')}</h3>${contaMargem(mg)}</section>
+        <section class="bloco"><h3 class="rotulo">${t('fichaReservas')}</h3>
+          ${res.length ? `<div class="tabela-rolo"><table class="tabela">
+            <thead><tr><th>${t('colCodigo')}</th><th>${t('colCliente')}</th><th>${t('retirada')}</th><th>${t('devolucao')}</th><th class="num">${t('total')}</th><th>${t('colSituacao')}</th></tr></thead>
+            <tbody>${res.map((r) => `<tr><td><button class="link mono" data-acao="abrirReserva" data-x="${r.id}">${esc(r.codigo)}</button></td><td>${esc(r.motorista.nome)}</td>
+              <td>${esc(dataHora(r.ini))}</td><td>${esc(dataHora(r.fim))}</td><td class="num">${esc(moeda(r.status === 'cancelada' ? r.multa : r.total))}</td>
+              <td><span class="selo st-${r.status}">${t('st_' + r.status)}</span></td></tr>`).join('')}</tbody></table></div>` : `<p class="nota">${t('fichaSemReservas')}</p>`}
+        </section>
+        <section class="bloco"><h3 class="rotulo">${t('fichaCustos')}</h3>
+          ${u.fipe ? `<p class="nota">${esc(t('fichaIpva', { l: moeda(L.ipva(u.fipe, cfg.aliqLocadora)), a: pctTxt(cfg.aliqLocadora), p: moeda(L.ipva(u.fipe, cfg.aliqParticular)), b: pctTxt(cfg.aliqParticular) }))}</p>` : ''}
+          ${listaCustos(u)}
+          <button class="botao linha" data-acao="novoCusto" data-x="${u.id}">${t('lancarCusto')}</button>
+        </section>
+        <section class="bloco"><h3 class="rotulo">${t('fichaManut')}</h3>${cartaoManut(troca)}</section>
+      </article>`;
+  }
+
+  function fixosBloco() {
+    const total = L.totalFixos(E.fixos), n = E.unidades.length, nf = UI.novoFixo, en = UI.erroNovoFixo;
+    return `<section class="bloco"><h2 class="rotulo">${t('fixosTitulo')}</h2>
+      <p class="nota">${esc(t('fixosAjuda', { v: moeda(total), n, p: moeda(L.fixoPorCarro(E)) }))}</p>
+      <div class="fixos">${E.fixos.map((f) => {
+        const erro = UI.erroFixo[f.id];
+        return `<div class="fixo-linha">
+          <input id="fx-nome-${f.id}" class="fixo-nome" value="${esc(f.nome)}" maxlength="40" autocomplete="off" data-campo="fixoNome" data-x="${f.id}" aria-label="${t('fixoNome')}" aria-invalid="${erro === 'erroNomeFixo'}">
+          <div class="pl-entrada"><span>R$</span><input id="fx-valor-${f.id}" inputmode="decimal" value="${esc(reaisTxt(f.valor))}" maxlength="13" data-campo="fixoValor" data-x="${f.id}" aria-label="${esc(t('fixoValorDe', { n: f.nome }))}" aria-invalid="${erro === 'erroValorCusto'}"></div>
+          <button class="fino" data-acao="apagarFixo" data-x="${f.id}">${t(UI.certezaFixo === f.id ? 'apagarManutCerteza' : 'apagarManut')}</button>
+          ${erro ? `<p class="erro" role="alert">${t(erro)}</p>` : ''}
+        </div>`;
+      }).join('')}
+        <div class="fixo-linha novo">
+          <input id="nf-nome" class="fixo-nome" value="${esc(nf.nome)}" maxlength="40" autocomplete="off" placeholder="${t('fixoNovoNome')}" data-campo="novoFixo.nome" aria-label="${t('fixoNome')}" aria-invalid="${!!en.nome}">
+          <div class="pl-entrada"><span>R$</span><input id="nf-valor" inputmode="decimal" value="${esc(nf.valor)}" maxlength="13" placeholder="0" data-campo="novoFixo.valor" aria-label="${t('fixoValor')}" aria-invalid="${!!en.valor}"></div>
+          <button class="fino" data-acao="addFixo">+ ${t('fixoAdicionar')}</button>
+          ${en.nome || en.valor ? `<p class="erro" role="alert">${t(en.nome || en.valor)}</p>` : ''}
+        </div>
+      </div>
+    </section>`;
+  }
+
+  function margemPainel() {
+    const f = L.margemFrota(E, UI.mes);
+    const linhas = f.carros.map((mg, i) => {
+      const u = E.unidades.find((x) => x.id === mg.unidade), pos = i === 0 ? 'topo-rank' : i === f.carros.length - 1 ? 'fundo-rank' : '';
+      return `<tr class="${pos}"><td class="mono">${i + 1}º</td>
+        <td><button class="link" data-acao="verFicha" data-x="${u.id}">${esc(u.placa)}</button><small>${esc(modelo(u.modelo).nome)}</small></td>
+        <td class="num">${esc(moeda(mg.receita))}<small>${esc(t('mgDiarias', { n: mg.diarias }))}</small></td>
+        <td class="num">${esc(moeda(mg.custoCarro))}</td><td class="num">${esc(moeda(mg.fixo))}</td>
+        <td class="num">${moedaSinal(mg.lucro)}</td><td class="num">${esc(margemTxt(mg.margem))}</td></tr>`;
+    }).join('');
+    const melhor = f.carros[0], pior = f.carros[f.carros.length - 1];
+    const placaDe = (mg) => E.unidades.find((x) => x.id === mg.unidade).placa;
+    return `${mesNav()}
+      <div class="kpis">
+        <div class="kpi"><small>${t('mgReceitaFrota')}</small><b>${esc(moeda(f.receita))}</b></div>
+        <div class="kpi"><small>${t('mgCustosFrota')}</small><b>${esc(moeda(f.custoCarro))}</b></div>
+        <div class="kpi"><small>${t('mgFixoFrota')}</small><b>${esc(moeda(f.fixo))}</b></div>
+        <div class="kpi"><small>${t('mgLucro')}</small><b>${moedaSinal(f.lucro)}</b></div>
+        <div class="kpi"><small>${t('mgMargem')}</small><b>${esc(margemTxt(f.margem))}</b></div>
+      </div>
+      ${melhor ? `<div class="manut-resumo"><span class="selo ok">${esc(t('mgMelhor', { p: placaDe(melhor), v: moeda(melhor.lucro) }))}</span>
+        <span class="selo pare">${esc(t('mgPior', { p: placaDe(pior), v: moeda(pior.lucro) }))}</span>
+        <button class="fino" data-acao="novoCusto" data-x="${esc(UI.fichaId || '')}">+ ${t('lancarCusto')}</button></div>` : ''}
+      <p class="nota">${t('mgAjuda')}</p>
+      ${linhas ? `<div class="tabela-rolo" id="rolo-margem" tabindex="0"><table class="tabela rank">
+        <thead><tr><th></th><th>${t('colCarro')}</th><th class="num">${t('mgColReceita')}</th><th class="num">${t('mgColCustos')}</th><th class="num">${t('mgColFixo')}</th><th class="num">${t('mgLucro')}</th><th class="num">${t('mgMargem')}</th></tr></thead>
+        <tbody>${linhas}</tbody></table></div>` : `<p class="vazio">${t('semCarros')}</p>`}
+      ${fixosBloco()}`;
+  }
+
+  // ponto de partida do simulador: a frota de hoje, no mês escolhido
+  function baseSimulador() {
+    const n = E.unidades.length;
+    const media = (lista) => (lista.length ? Math.round(lista.reduce((s, v) => s + v, 0) / lista.length) : 0);
+    return {
+      custo: media(E.unidades.map((u) => L.margemCarro(E, u, UI.mes).custoCarro)),
+      diaria: media(E.unidades.map((u) => E.tarifas[u.modelo]).filter(Number.isInteger)),
+      fipe: media(E.unidades.map((u) => u.fipe).filter((v) => v > 0)),
+      n,
+    };
+  }
+
+  function simuladorPainel() {
+    const base = baseSimulador(), s = UI.sim, cfg = E.config;
+    const valor = (k) => (s[k] === null ? base[k] : s[k]);
+    const conta = (n) => L.simular({ n, fixosMes: L.totalFixos(E.fixos), custoCarroMes: valor('custo'), diariaMedia: valor('diaria'),
+      fipeMedio: valor('fipe'), aliqLocadora: cfg.aliqLocadora, aliqParticular: cfg.aliqParticular });
+    const r = conta(s.n);
+    const ns = [...new Set([base.n, 5, 10, 15, 20, s.n])].filter((x) => x > 0).sort((a, b) => a - b);
+    const campo = (k, rotulo, ajuda) => `<div class="campo-claro"><label for="sim-${k}">${t(rotulo)}</label>
+        <div class="pl-entrada"><span>R$</span><input id="sim-${k}" inputmode="decimal" maxlength="13" value="${esc(reaisTxt(valor(k)))}" data-campo="sim.${k}" aria-invalid="${!!s.erros[k]}"></div>
+        <p class="nota">${esc(ajuda)}${s[k] !== null ? ` <button class="fino" data-acao="simFrota" data-x="${k}">${t('simUsarFrota')}</button>` : ''}</p>
+        ${s.erros[k] ? `<p class="erro" role="alert">${t('erroValorCusto')}</p>` : ''}</div>`;
+    const ocup = r.equilibrio === null ? null : Math.round((r.equilibrio / 30) * 100);
+    return `<p class="nota">${t('simAjuda')}</p>
+      <div class="filtros" role="group" aria-label="${t('simQuantos')}">${[5, 10, 15, 20].map((n) => `<button class="chip" data-acao="simN" data-x="${n}" aria-pressed="${s.n === n}">${esc(t('simNCarros', { n }))}</button>`).join('')}</div>
+      <div class="sim-campos">
+        <div class="campo-claro"><label for="sim-n">${t('simQuantos')}</label>
+          <input id="sim-n" inputmode="numeric" maxlength="3" value="${esc(s.n)}" data-campo="sim.n" aria-invalid="${!!s.erros.n}">
+          <p class="nota">${esc(t('simFrotaHoje', { n: base.n }))}</p>
+          ${s.erros.n ? `<p class="erro" role="alert">${t('erroSimN')}</p>` : ''}</div>
+        ${campo('custo', 'simCusto', t('simCustoAjuda', { m: nomeMes(UI.mes), v: moeda(base.custo) }))}
+        ${campo('diaria', 'simDiaria', t('simDiariaAjuda', { v: moeda(base.diaria) }))}
+        ${campo('fipe', 'simFipe', t('simFipeAjuda', { v: moeda(base.fipe) }))}
+      </div>
+      <div class="kpis">
+        <div class="kpi"><small>${t('simFixoPorCarro')}</small><b>${esc(moeda(r.fixoPorCarro))}</b><i>${esc(t('simFixoTotal', { v: moeda(L.totalFixos(E.fixos)) }))}</i></div>
+        <div class="kpi"><small>${t('simCustoPorCarro')}</small><b>${esc(moeda(r.custoPorCarro))}</b></div>
+        <div class="kpi"><small>${esc(t('simEconomia', { n: r.n }))}</small><b>${esc(moeda(r.economiaAnual))}</b><i>${esc(t('simIpvaCarro', { l: moeda(r.ipvaLocadora), p: moeda(r.ipvaParticular) }))}</i></div>
+        <div class="kpi"><small>${t('simEquilibrio')}</small><b>${r.equilibrio === null ? '–' : esc(t('simDiariasMes', { n: r.equilibrio }))}</b>${ocup === null ? '' : `<i>${esc(t('simOcupacao', { p: ocup }))}</i>`}</div>
+      </div>
+      <div class="tabela-rolo" id="rolo-sim" tabindex="0"><table class="tabela rank">
+        <thead><tr><th>${t('simColCarros')}</th><th class="num">${t('simFixoPorCarro')}</th><th class="num">${t('simCustoPorCarro')}</th><th class="num">${t('simEquilibrio')}</th><th class="num">${t('simColEconomia')}</th></tr></thead>
+        <tbody>${ns.map((n) => { const x = conta(n); return `<tr class="${n === s.n ? 'topo-rank' : ''}"><td>${esc(t('simNCarros', { n }))}${n === base.n ? `<small>${t('simHoje')}</small>` : ''}</td>
+          <td class="num">${esc(moeda(x.fixoPorCarro))}</td><td class="num">${esc(moeda(x.custoPorCarro))}</td>
+          <td class="num">${x.equilibrio === null ? '–' : esc(t('simDiariasMes', { n: x.equilibrio }))}</td><td class="num">${esc(moeda(x.economiaAnual))}</td></tr>`; }).join('')}</tbody>
+      </table></div>
+      <p class="nota">${esc(t('simConta', { a: pctTxt(cfg.aliqLocadora), b: pctTxt(cfg.aliqParticular) }))}</p>`;
+  }
+
+  function configPainel() {
+    const cfg = E.config, e = UI.erroConfig;
+    const campo = (k, rotulo, ajuda) => `<div class="campo-claro"><label for="cfg-${k}">${t(rotulo)}</label>
+        <div class="pl-entrada"><input id="cfg-${k}" inputmode="decimal" maxlength="5" value="${esc(pctTxt(cfg[k]))}" data-campo="aliquota" data-x="${k}" aria-invalid="${!!e[k]}"><span>%</span></div>
+        <p class="nota">${t(ajuda)}</p>
+        ${e[k] ? `<p class="erro" role="alert">${t('erroAliquota')}</p>` : ''}</div>`;
+    return `<section class="bloco config"><h2 class="rotulo">${t('cfgIpvaTitulo')}</h2>
+      <p class="nota">${t('cfgIpvaAjuda')}</p>
+      ${campo('aliqLocadora', 'cfgAliqLocadora', 'cfgAliqLocadoraAjuda')}
+      ${campo('aliqParticular', 'cfgAliqParticular', 'cfgAliqParticularAjuda')}
+      <p class="nota">${esc(t('cfgExemplo', { l: moeda(L.ipva(10000000, cfg.aliqLocadora)), p: moeda(L.ipva(10000000, cfg.aliqParticular)) }))}</p>
+    </section>`;
+  }
+
   function painel() {
-    const abas = [['hoje', 'abaHoje'], ['quadro', 'abaQuadro'], ['reservas', 'abaReservasPainel'], ['frota', 'abaFrota'], ['manut', 'abaManut'], ['precos', 'abaPrecos']];
-    const corpo = { hoje: painelHoje, quadro, reservas: reservasTabela, frota: frotaLista, manut: manutencaoLista, precos: precosLista }[UI.abaPainel]();
+    const abas = [['hoje', 'abaHoje'], ['quadro', 'abaQuadro'], ['reservas', 'abaReservasPainel'], ['frota', 'abaFrota'], ['ficha', 'abaFicha'], ['manut', 'abaManut'],
+      ['margem', 'abaMargem'], ['simulador', 'abaSimulador'], ['precos', 'abaPrecos'], ['config', 'abaConfig']];
+    const corpo = { hoje: painelHoje, quadro, reservas: reservasTabela, frota: frotaLista, ficha: fichaCarro, manut: manutencaoLista,
+      margem: margemPainel, simulador: simuladorPainel, precos: precosLista, config: configPainel }[UI.abaPainel]();
     const alertas = trocasDaFrota().filter((x) => x.pior <= 1).length;
     const rotuloAba = (id, k) => (id === 'manut' && alertas ? t('abaManutAlerta', { n: alertas }) : t(k));
     return `<section class="sup-painel" aria-label="${t('vistaLocadora')}">
@@ -2319,7 +2876,7 @@ fieldset.grupo .opcao + .opcao { margin-top: 0; }
     </div></div>`;
   }
 
-  // campo de formulário das janelas do dono; prefixo "fc" = carro, "fm" = manutenção
+  // campo de formulário das janelas do dono; prefixo "fc" = carro, "fm" = manutenção, "fu" = custo
   function campoForm(pre, id, rotulo, attrs, ajuda) {
     const c = UI.modal, erro = c.erros[id], idEl = `${pre}-${id}`;
     return `<div class="campo-claro"><label for="${idEl}">${t(rotulo)}</label>
@@ -2344,6 +2901,7 @@ fieldset.grupo .opcao + .opcao { margin-top: 0; }
       ${campoForm('fc', 'placa', 'fc_placa', 'type="text" maxlength="8" autocomplete="off" autocapitalize="characters" spellcheck="false"')}
       ${campoForm('fc', 'tarifa', 'fc_tarifa', 'type="text" inputmode="decimal" maxlength="8" autocomplete="off"')}
       ${campoForm('fc', 'km', 'fc_km', 'type="text" inputmode="numeric" maxlength="9" autocomplete="off"')}
+      ${campoForm('fc', 'fipe', 'fc_fipe', 'type="text" inputmode="decimal" maxlength="13" autocomplete="off"', t('fc_fipeAjuda', { a: pctTxt(E.config.aliqLocadora) }))}
       <div class="campo-claro"><label for="fc-foto">${t('fc_foto')}</label>
         ${f.foto ? `<img class="fc-foto" src="${esc(f.foto)}" alt="">` : ''}
         <input id="fc-foto" type="file" accept="image/*" data-campo="fc.foto">
@@ -2376,6 +2934,35 @@ fieldset.grupo .opcao + .opcao { margin-top: 0; }
     </div></div>`;
   }
 
+  // lançamento rápido de custo de um carro; no IPVA, o valor já vem calculado pela FIPE × alíquota de locadora
+  function modalCusto() {
+    const c = UI.modal, f = c.f, e = c.erros, u = unidade(f.unidade), hoje = hojeTxt().slice(0, 10), cfg = E.config;
+    const tipos = L.TIPOS_CUSTO.map((x) => [x, t('tc_' + x)]);
+    const ajuda = [];
+    if (f.tipo === 'ipva') ajuda.push(u && u.fipe ? t('fuIpvaCalc', { v: moeda(L.ipva(u.fipe, cfg.aliqLocadora)), f: moeda(u.fipe), a: pctTxt(cfg.aliqLocadora) }) : t('fuIpvaSemFipe'));
+    if (L.CUSTOS_ANUAIS.includes(f.tipo)) ajuda.push(t('fuAnualAjuda'));
+    return `<div class="jan-fundo"><div class="janela" role="dialog" aria-modal="true" aria-label="${t('lancarCusto')}">
+      <button class="fechar" id="jan-fechar" data-acao="fecharModal" aria-label="${t('fechar')}">×</button>
+      <h2 class="titulo">${t('lancarCusto')}</h2>
+      <div class="campo-claro"><label for="fu-unidade">${t('fu_carro')}</label>
+        <select id="fu-unidade" data-campo="fu.unidade">${opcoes(E.unidades.map((x) => [x.id, nomeCarro(x)]), f.unidade)}</select></div>
+      <div class="campo-claro"><label for="fu-tipo">${t('fu_tipo')}</label>
+        <select id="fu-tipo" data-campo="fu.tipo">${opcoes(tipos, f.tipo)}</select>
+        ${e.tipo ? `<p class="erro" role="alert">${t('erroTipoCusto')}</p>` : ''}</div>
+      ${campoForm('fu', 'data', 'fu_data', `type="date" max="${hoje}"`)}
+      ${campoForm('fu', 'valor', 'fu_valor', 'type="text" inputmode="decimal" maxlength="13" autocomplete="off"', ajuda.join(' '))}
+      ${campoForm('fu', 'obs', 'fu_obs', 'type="text" maxlength="120" autocomplete="off"', t('fu_obsAjuda'))}
+      <button class="botao verde largo" id="fu-salvar" data-acao="salvarCusto">${t('fu_salvar')}</button>
+    </div></div>`;
+  }
+
+  // no IPVA, preenche o valor calculado; se o dono digitou outro valor, respeita
+  function ipvaAutomatico(c) {
+    const u = unidade(c.f.unidade);
+    if (c.f.tipo === 'ipva' && (c.f.valor === '' || c.auto) && u && u.fipe) { c.f.valor = reaisTxt(L.ipva(u.fipe, E.config.aliqLocadora)); c.auto = true; }
+    else if (c.auto && (c.f.tipo !== 'ipva' || !u || !u.fipe)) { c.f.valor = ''; c.auto = false; }
+  }
+
   /* ---------- desenhar ---------- */
   function seletorDe(el) {
     if (!el || el === document.body) return null;
@@ -2401,7 +2988,7 @@ fieldset.grupo .opcao + .opcao { margin-top: 0; }
   function desenhar() {
     const foco = seletorDe(document.activeElement);
     const rolos = {};
-    for (const id of ['rolo-cliente', 'rolo-painel', 'rolo-quadro', 'rolo-tipos', 'rolo-chips', 'rolo-filtro', 'rolo-reservas', 'rolo-frota', 'rolo-lojas']) {
+    for (const id of ['rolo-cliente', 'rolo-painel', 'rolo-quadro', 'rolo-tipos', 'rolo-chips', 'rolo-filtro', 'rolo-reservas', 'rolo-frota', 'rolo-lojas', 'rolo-margem', 'rolo-sim']) {
       const el = document.getElementById(id);
       if (el) rolos[id] = [el.scrollTop, el.scrollLeft];
     }
@@ -2422,7 +3009,7 @@ fieldset.grupo .opcao + .opcao { margin-top: 0; }
     const m = UI.modal;
     const antes = alvo.querySelector('.janela');
     const y = antes ? antes.scrollTop : 0;
-    const janelas = { vistoria: modalVistoria, checkin: modalCheckin, carro: modalCarro, manut: modalManut };
+    const janelas = { vistoria: modalVistoria, checkin: modalCheckin, carro: modalCarro, manut: modalManut, custo: modalCusto };
     alvo.innerHTML = !m ? '' : janelas[m.tipo] ? janelas[m.tipo]() : modalReserva(reserva(m.id));
     const depois = alvo.querySelector('.janela');
     if (depois) depois.scrollTop = y;
@@ -2610,10 +3197,10 @@ fieldset.grupo .opcao + .opcao { margin-top: 0; }
     m.cat = carro.categoria; // categoria e diária são do modelo (o cliente reserva o modelo, "ou similar")
     E.tarifas[m.id] = carro.tarifa;
     if (atual) {
-      Object.assign(atual, { modelo: m.id, ano: carro.ano, placa: carro.placa, km: carro.km, foto: f.foto || null });
+      Object.assign(atual, { modelo: m.id, ano: carro.ano, placa: carro.placa, km: carro.km, fipe: carro.fipe, foto: f.foto || null });
     } else {
       E.unidades.push({ id: proximoId('u', [...E.unidades, ...E.removidos]), modelo: m.id, placa: carro.placa, local: D.LOCAIS[0].id,
-        km: carro.km, situacao: 'ok', ano: carro.ano, oleoKm: L.REGRAS.oleoPadraoKm, filtroKm: L.REGRAS.filtroPadraoKm, foto: f.foto || null });
+        km: carro.km, situacao: 'ok', ano: carro.ano, oleoKm: L.REGRAS.oleoPadraoKm, filtroKm: L.REGRAS.filtroPadraoKm, foto: f.foto || null, fipe: carro.fipe });
     }
     const ok = salvar();
     log(atual ? 'carro editado' : 'carro cadastrado', carro.placa);
@@ -2629,7 +3216,10 @@ fieldset.grupo .opcao + .opcao { margin-top: 0; }
     E.unidades = E.unidades.filter((x) => x !== u);
     // com reserva antiga, o carro vai pro arquivo pra o histórico continuar abrindo; sem nenhuma, sai de vez
     if (E.reservas.some((r) => r.unidade === u.id)) E.removidos.push(u);
-    else E.manutencoes = E.manutencoes.filter((r) => r.unidade !== u.id);
+    else {
+      E.manutencoes = E.manutencoes.filter((r) => r.unidade !== u.id);
+      E.custos = E.custos.filter((c) => c.unidade !== u.id);
+    }
     salvar();
     log('carro removido da frota', u.placa);
     avisar(t('carroRemovido', { p: u.placa }));
@@ -2684,6 +3274,29 @@ fieldset.grupo .opcao + .opcao { margin-top: 0; }
     desenhar();
   }
 
+  function salvarCusto() {
+    const c = UI.modal, u = E.unidades.find((x) => x.id === c.f.unidade);
+    if (!u) { log('custo não lançado: o carro não está mais na frota', c.f.unidade); fecharModal(); desenhar(); return; }
+    const { erros, custo } = L.validarCusto(c.f, hojeTxt().slice(0, 10));
+    c.erros = erros;
+    if (Object.keys(erros).length) { log('custo com erro', Object.keys(erros).join(', ')); desenharModal(); focarErro('fu', erros); return; }
+    E.custos.push({ id: proximoId('cu', E.custos), unidade: u.id, ...custo });
+    const ok = salvar();
+    log('custo lançado', `${u.placa} ${custo.tipo} ${custo.valor}`);
+    avisar(ok ? t('custoSalvo', { p: u.placa, v: moeda(custo.valor) }) : t('erroSalvarAparelho'));
+    fecharModal();
+    desenhar();
+  }
+
+  // apagar com dois toques: o 1º pede certeza, que some sozinha em 4s
+  function pedirCerteza(campo, id) {
+    if (UI[campo] === id) return true;
+    UI[campo] = id;
+    desenhar();
+    setTimeout(() => { if (UI[campo] === id) { UI[campo] = null; desenhar(); } }, 4000);
+    return false;
+  }
+
   /* ---------- ações dos botões ---------- */
   const ACOES = {
     modo(x) { UI.modo = x; desenhar(); },
@@ -2699,6 +3312,8 @@ fieldset.grupo .opcao + .opcao { margin-top: 0; }
       UI.certezaReinicio = false; UI.modal = null; UI.tela = 'busca'; UI.abaCliente = 'reservar'; UI.rascunho = null; UI.editandoId = null;
       UI.categoria = 'todos'; UI.cambio = 'todos'; UI.filtroReservas = 'ativas'; UI.lojaPainel = 'todas'; UI.erroBusca = null; UI.certezaCancelar = null; UI.destaque = null;
       UI.erroIntervalo = {}; UI.certezaManut = null; UI.erroTarifa = {};
+      UI.fichaId = null; UI.mes = mesAtual(); UI.sim = simPadrao(); UI.novoFixo = { nome: '', valor: '' }; UI.erroNovoFixo = {};
+      UI.erroFixo = {}; UI.erroConfig = {}; UI.certezaCusto = null; UI.certezaFixo = null;
       UI.busca = buscaPadrao();
       log('demonstração reiniciada');
       avisar(t('reiniciado'));
@@ -2841,14 +3456,14 @@ fieldset.grupo .opcao + .opcao { margin-top: 0; }
     },
     novoCarro() {
       abrirModal({ tipo: 'carro', unidade: null, erros: {}, certezaRemover: false,
-        f: { modelo: '', categoria: D.CATEGORIAS[0], ano: String(anoAtual()), placa: '', tarifa: '', km: '0', foto: null } });
+        f: { modelo: '', categoria: D.CATEGORIAS[0], ano: String(anoAtual()), placa: '', tarifa: '', km: '0', fipe: '', foto: null } });
     },
     editarCarro(x) {
       const u = unidade(x);
       if (!u) return;
       const m = modelo(u.modelo);
       abrirModal({ tipo: 'carro', unidade: u.id, erros: {}, certezaRemover: false,
-        f: { modelo: m.nome, categoria: m.cat, ano: String(u.ano), placa: u.placa, tarifa: reaisTxt(E.tarifas[m.id]), km: String(u.km), foto: u.foto || null } });
+        f: { modelo: m.nome, categoria: m.cat, ano: String(u.ano), placa: u.placa, tarifa: reaisTxt(E.tarifas[m.id]), km: String(u.km), fipe: u.fipe ? reaisTxt(u.fipe) : '', foto: u.foto || null } });
     },
     salvarCarro() { salvarCarro(); },
     fcSemFoto() { UI.modal.f.foto = null; desenharModal(); const b = document.getElementById('fc-foto'); if (b) b.focus({ preventScroll: true }); },
@@ -2883,6 +3498,56 @@ fieldset.grupo .opcao + .opcao { margin-top: 0; }
       avisar(t('manutApagada'));
       desenhar();
     },
+    verFicha(x) { if (E.unidades.some((u) => u.id === x)) { UI.fichaId = x; UI.abaPainel = 'ficha'; desenhar(); } },
+    mes(x) { UI.mes = x === '0' ? mesAtual() : L.somarMes(UI.mes, Number(x)); desenhar(); },
+    novoCusto(x) {
+      const u = E.unidades.find((v) => v.id === x) || E.unidades[0];
+      if (!u) return;
+      const c = { tipo: 'custo', erros: {}, auto: false, f: { unidade: u.id, tipo: 'ipva', data: hojeTxt().slice(0, 10), valor: '', obs: '' } };
+      ipvaAutomatico(c);
+      abrirModal(c);
+    },
+    salvarCusto() { salvarCusto(); },
+    apagarCusto(x) {
+      if (!pedirCerteza('certezaCusto', x)) return;
+      E.custos = E.custos.filter((c) => c.id !== x);
+      UI.certezaCusto = null;
+      salvar();
+      log('custo apagado', x);
+      avisar(t('custoApagado'));
+      desenhar();
+    },
+    addFixo() {
+      const { erros, fixo } = L.validarFixo(UI.novoFixo);
+      UI.erroNovoFixo = erros;
+      if (Object.keys(erros).length) {
+        log('custo fixo com erro', Object.keys(erros).join(', '));
+        desenhar();
+        const el = document.getElementById(erros.nome ? 'nf-nome' : 'nf-valor');
+        if (el) el.focus();
+        return;
+      }
+      E.fixos.push({ id: proximoId('fx', E.fixos), ...fixo });
+      UI.novoFixo = { nome: '', valor: '' };
+      salvar();
+      log('custo fixo adicionado', fixo.nome);
+      avisar(t('fixoSalvo', { n: fixo.nome, v: moeda(fixo.valor) }));
+      desenhar();
+      const el = document.getElementById('nf-nome');
+      if (el) el.focus({ preventScroll: true });
+    },
+    apagarFixo(x) {
+      if (!pedirCerteza('certezaFixo', x)) return;
+      E.fixos = E.fixos.filter((f) => f.id !== x);
+      delete UI.erroFixo[x];
+      UI.certezaFixo = null;
+      salvar();
+      log('custo fixo apagado', x);
+      avisar(t('fixoApagado'));
+      desenhar();
+    },
+    simN(x) { UI.sim.n = Number(x); delete UI.sim.erros.n; desenhar(); },
+    simFrota(x) { if (['custo', 'diaria', 'fipe'].includes(x)) { UI.sim[x] = null; delete UI.sim.erros[x]; desenhar(); } },
   };
 
   function erroDaBusca() {
@@ -2977,14 +3642,68 @@ fieldset.grupo .opcao + .opcao { margin-top: 0; }
     if (c.startsWith('motorista.')) UI.rascunho.motorista[c.split('.')[1]] = e.target.value;
     if (c === 'vist.km') UI.modal.km = e.target.value;
     if (c === 'ck.texto') UI.modal.texto = e.target.value;
-    if (/^f[cm]\.\w+$/.test(c) && c !== 'fc.foto' && UI.modal && UI.modal.f) UI.modal.f[c.slice(3)] = e.target.value;
+    if (/^f[cmu]\.\w+$/.test(c) && c !== 'fc.foto' && UI.modal && UI.modal.f) UI.modal.f[c.slice(3)] = e.target.value;
+    if (c === 'fu.valor' && UI.modal) UI.modal.auto = false; // o dono digitou: não troca mais o valor sozinho
+    if (c.startsWith('novoFixo.')) UI.novoFixo[c.slice(9)] = e.target.value;
   });
 
   document.addEventListener('change', (e) => {
     const el = e.target, c = el.dataset.campo;
     if (!c) return;
     if (c === 'fc.foto') { lerFoto(el.files && el.files[0]); return; }
-    if (/^f[cm]\.\w+$/.test(c)) { if (UI.modal && UI.modal.f) UI.modal.f[c.slice(3)] = el.value; return; }
+    if (c === 'fu.tipo' || c === 'fu.unidade') {
+      const m = UI.modal;
+      if (!m || m.tipo !== 'custo') return;
+      m.f[c.slice(3)] = el.value;
+      ipvaAutomatico(m);
+      desenharModal();
+      const de = document.getElementById(el.id);
+      if (de) de.focus({ preventScroll: true });
+      return;
+    }
+    if (/^f[cmu]\.\w+$/.test(c)) { if (UI.modal && UI.modal.f) UI.modal.f[c.slice(3)] = el.value; return; }
+    if (c.startsWith('novoFixo.')) { UI.novoFixo[c.slice(9)] = el.value; return; }
+    if (c === 'ficha') { if (E.unidades.some((u) => u.id === el.value)) { UI.fichaId = el.value; desenhar(); } return; }
+    if (c === 'fixoNome' || c === 'fixoValor') {
+      const f = E.fixos.find((x) => x.id === el.dataset.x);
+      if (!f) return;
+      const { erros, fixo } = L.validarFixo(c === 'fixoNome' ? { nome: el.value, valor: reaisTxt(f.valor) } : { nome: f.nome, valor: el.value });
+      const erro = c === 'fixoNome' ? erros.nome : erros.valor;
+      if (erro) { UI.erroFixo[f.id] = erro; desenharDepois(); return; }
+      delete UI.erroFixo[f.id];
+      if (c === 'fixoNome') f.nome = fixo.nome; else f.valor = fixo.valor;
+      salvar();
+      log('custo fixo alterado', `${f.nome} ${f.valor}`);
+      avisar(t('fixoSalvo', { n: f.nome, v: moeda(f.valor) }));
+      desenharDepois();
+      return;
+    }
+    if (c === 'aliquota') {
+      const k = el.dataset.x, v = L.validarAliquota(el.value);
+      if (!['aliqLocadora', 'aliqParticular'].includes(k)) return;
+      if (v === null) { UI.erroConfig[k] = true; desenharDepois(); return; }
+      delete UI.erroConfig[k];
+      E.config[k] = v;
+      salvar();
+      log('alíquota de IPVA alterada', `${k} ${v}`);
+      avisar(t('aliquotaSalva', { a: pctTxt(v) }));
+      desenharDepois();
+      return;
+    }
+    if (c.startsWith('sim.')) {
+      const k = c.slice(4);
+      if (k === 'n') {
+        const n = Number(el.value.trim());
+        if (!/^\d{1,3}$/.test(el.value.trim()) || n < 1 || n > 500) UI.sim.erros.n = true;
+        else { UI.sim.n = n; delete UI.sim.erros.n; }
+      } else if (['custo', 'diaria', 'fipe'].includes(k)) {
+        const v = L.validarDinheiro(el.value, 0, 500000000, null);
+        if (v === null && el.value.trim() !== '') UI.sim.erros[k] = true;
+        else { UI.sim[k] = v; delete UI.sim.erros[k]; }
+      }
+      desenharDepois();
+      return;
+    }
     if (c === 'intervalo') {
       const u = E.unidades.find((x) => x.id === el.dataset.x), tipo = el.dataset.y;
       if (!u || !['oleo', 'filtro'].includes(tipo)) return;
@@ -3044,9 +3763,10 @@ fieldset.grupo .opcao + .opcao { margin-top: 0; }
     if (e.key !== CHAVE) return;
     E = carregar();
     const m = UI.modal;
-    if (m && (m.tipo === 'carro' || m.tipo === 'manut')) {
+    if (m && (m.tipo === 'carro' || m.tipo === 'manut' || m.tipo === 'custo')) {
       // janela do dono continua aberta, a não ser que o carro tenha saído da frota na outra aba
-      if (m.unidade && !E.unidades.some((u) => u.id === m.unidade)) UI.modal = null;
+      const id = m.tipo === 'custo' ? m.f.unidade : m.unidade;
+      if (id && !E.unidades.some((u) => u.id === id)) UI.modal = null;
     } else if (m) {
       const r = reserva(m.id);
       const esperado = m.tipo === 'vistoria' ? (m.fase === 'ret' ? 'reservada' : 'retirada') : m.tipo === 'checkin' ? 'reservada' : null;
