@@ -459,6 +459,30 @@ fieldset.grupo .opcao + .opcao { margin-top: 0; }
 .config .pl-entrada { padding: 0 10px 0 0; }
 .config .pl-entrada input { padding-left: 10px; text-align: left; }
 
+/* ---------- clientes, anexos e lembretes ---------- */
+.cl-cab { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.cl-cab strong { font: 900 1.1rem/1.2 var(--f-placa); }
+.manut-cartao.cliente > small, .cl-cab small { color: var(--apagado); overflow-wrap: anywhere; }
+.manut-cartao.cliente > small strong { color: var(--tinta); }
+.acoes-linha { flex-wrap: wrap; }
+.aviso-lem { border-left: 3px solid var(--ambar); padding-left: 8px; }
+.lem-lista { display: flex; flex-direction: column; gap: 8px; }
+.lem { background: var(--sup); border: 1px solid var(--linha); border-radius: 10px; padding: 10px 12px; display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 8px 10px; align-items: center; }
+.lem.lem-atrasado { border: 2px solid var(--pare); }
+.lem.lem-hoje { border: 2px solid var(--ambar); }
+.lem-txt { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.lem-txt small { color: var(--apagado); overflow-wrap: anywhere; }
+.lem .botao { min-height: 40px; padding: 8px 12px; font-size: .92rem; }
+.lem-km { display: flex; gap: 6px; align-items: center; }
+.lem-km input { width: 120px; background: var(--chao); border: 1px solid var(--linha); border-radius: 6px; padding: 8px; font: 700 16px var(--f-dado); min-width: 0; }
+.lem-km input[aria-invalid="true"] { border-color: var(--pare); }
+.lem .erro { grid-column: 1 / -1; }
+.manut-regs.anexos li { flex-wrap: wrap; }
+@media (max-width: 700px) {
+  .lem { grid-template-columns: minmax(0, 1fr); }
+  .lem .selo { justify-self: start; }
+}
+
 @media (max-width: 460px) {
   .trocas { grid-template-columns: minmax(0, 1fr); }
   .ficha-cab { grid-template-columns: minmax(0, 1fr); }
@@ -512,6 +536,11 @@ fieldset.grupo .opcao + .opcao { margin-top: 0; }
     oleoPadraoKm: 10000,    // intervalo inicial de troca de óleo de carro novo (o dono muda por carro)
     filtroPadraoKm: 20000,  // idem pro filtro
     avisoTrocaKm: 1000,     // faltando isso ou menos, o painel avisa que a troca está perto
+    oleoPadraoDias: 180,    // troca de óleo também vence por tempo (6 meses), o que vier primeiro: km ou data
+    filtroPadraoDias: 365,  // filtro: 12 meses
+    avisoTrocaDias: 15,     // faltando isso ou menos de dias, avisa que a troca está perto
+    kmMensalDias: 30,       // de quanto em quanto tempo perguntar o km ao cliente do aluguel semanal
+    anexoMaxBytes: 5 * 1024 * 1024, // 5 MB por arquivo anexado
   };
 
   const KM_MAX = 2000000;
@@ -540,10 +569,25 @@ fieldset.grupo .opcao + .opcao { margin-top: 0; }
     return Math.round(n * 100);
   }
 
-  /* f: { modelo, ano, placa, categoria, tarifa, km, fipe } em texto, como veio do formulário.
-     devolve { erros, carro } — carro já limpo (placa normalizada, números convertidos) */
+  // RENAVAM: 11 dígitos; o último é verificador (módulo 11, pesos 2 a 9 da direita pra esquerda, depois 2 e 3)
+  function digitoRenavam(base10) {
+    const d = String(base10);
+    let soma = 0, peso = 2;
+    for (let i = 9; i >= 0; i--) { soma += Number(d[i]) * peso; peso = peso >= 9 ? 2 : peso + 1; }
+    const r = 11 - (soma % 11);
+    return r >= 10 ? 0 : r;
+  }
+  function renavamValido(texto) {
+    const d = String(texto || '').trim().replace(/[\s.-]/g, '');
+    if (!/^\d{11}$/.test(d) || /^(\d)\1{10}$/.test(d)) return false;
+    return digitoRenavam(d.slice(0, 10)) === Number(d[10]);
+  }
+
+  /* f: { modelo, ano, placa, categoria, tarifa, km, fipe, cor, renavam } em texto, como veio do formulário.
+     devolve { erros, carro } — carro já limpo (placa normalizada, números convertidos).
+     cor e RENAVAM podem ficar em branco (carro cadastrado antes); preenchidos, precisam estar certos */
   function validarCarro(f, opc) {
-    const { categorias, placasEmUso, anoAtual } = opc;
+    const { categorias, placasEmUso, anoAtual, renavamsEmUso = [] } = opc;
     const erros = {};
     const modelo = String(f.modelo || '').trim().replace(/\s+/g, ' ');
     if (modelo.length < 2 || modelo.length > 40) erros.modelo = 'erroModeloCarro';
@@ -559,7 +603,12 @@ fieldset.grupo .opcao + .opcao { margin-top: 0; }
     if (km === null) erros.km = 'erroKmCarro';
     const fipe = validarFipe(f.fipe);
     if (fipe === null) erros.fipe = 'erroFipe';
-    return { erros, carro: { modelo, ano, placa, categoria: f.categoria, tarifa, km, fipe } };
+    const cor = String(f.cor || '').trim().replace(/\s+/g, ' ');
+    if (cor && !/^[\p{L} ]{3,20}$/u.test(cor)) erros.cor = 'erroCorCarro';
+    const renavam = String(f.renavam || '').replace(/[\s.-]/g, '');
+    if (renavam && !renavamValido(renavam)) erros.renavam = 'erroRenavam';
+    else if (renavam && renavamsEmUso.includes(renavam)) erros.renavam = 'erroRenavamRepetido';
+    return { erros, carro: { modelo, ano, placa, categoria: f.categoria, tarifa, km, fipe, cor, renavam } };
   }
 
   /* f: { tipo, data (AAAA-MM-DD), km, valor, obs }; outra manutenção precisa dizer o que foi na observação */
@@ -585,15 +634,165 @@ fieldset.grupo .opcao + .opcao { margin-top: 0; }
     return km !== null && km >= 500 && km <= 100000 ? km : null;
   }
 
-  /* situação da próxima troca (óleo ou filtro) pelo km atual do carro e pela última troca registrada.
-     estado: semRegistro | ok | perto | passou */
-  function situacaoTroca(u, manutencoes, tipo) {
+  /* situação da próxima troca (óleo ou filtro) pelo km atual do carro E pela data da última troca:
+     vence o que chegar primeiro (óleo a cada X km ou 6 meses; filtro a cada X km ou 12 meses).
+     Sem `hoje`, só olha o km. estado: semRegistro | ok | perto | passou */
+  const PESO_ESTADO = { ok: 0, perto: 1, passou: 2 };
+  function situacaoTroca(u, manutencoes, tipo, hoje) {
     const intervalo = tipo === 'oleo' ? u.oleoKm : u.filtroKm;
-    const kms = manutencoes.filter((m) => m.unidade === u.id && m.tipo === tipo).map((m) => m.km);
-    if (!kms.length) return { estado: 'semRegistro', intervalo, ultimaKm: null, proximaKm: null, faltam: null };
-    const ultimaKm = Math.max(...kms), proximaKm = ultimaKm + intervalo, faltam = proximaKm - u.km;
-    const estado = faltam <= 0 ? 'passou' : faltam <= REGRAS.avisoTrocaKm ? 'perto' : 'ok';
-    return { estado, intervalo, ultimaKm, proximaKm, faltam };
+    const prazoDias = tipo === 'oleo' ? REGRAS.oleoPadraoDias : REGRAS.filtroPadraoDias;
+    const regs = manutencoes.filter((m) => m.unidade === u.id && m.tipo === tipo);
+    if (!regs.length) return { estado: 'semRegistro', intervalo, ultimaKm: null, proximaKm: null, faltam: null, prazoDias, ultimaData: null, proximaData: null, diasFaltam: null };
+    const ultimaKm = Math.max(...regs.map((m) => m.km)), proximaKm = ultimaKm + intervalo, faltam = proximaKm - u.km;
+    const ultimaData = regs.map((m) => m.data).sort().pop(), proximaData = somarDias(ultimaData, prazoDias);
+    const diasFaltam = hoje ? diasEntre(hoje, proximaData) : null;
+    const porKm = faltam <= 0 ? 'passou' : faltam <= REGRAS.avisoTrocaKm ? 'perto' : 'ok';
+    const porData = diasFaltam === null ? 'ok' : diasFaltam <= 0 ? 'passou' : diasFaltam <= REGRAS.avisoTrocaDias ? 'perto' : 'ok';
+    const estado = PESO_ESTADO[porData] > PESO_ESTADO[porKm] ? porData : porKm;
+    return { estado, intervalo, ultimaKm, proximaKm, faltam, prazoDias, ultimaData, proximaData, diasFaltam };
+  }
+
+  // dias corridos de a até b (datas AAAA-MM-DD); negativo se b vem antes
+  function diasEntre(a, b) { return Math.round((ms(`${b}T00:00`) - ms(`${a}T00:00`)) / DIA); }
+  // 0 = domingo … 6 = sábado
+  function diaDaSemana(data) { return new Date(ms(`${data}T00:00`)).getUTCDay(); }
+  const dataValida = (d) => typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d) && !Number.isNaN(ms(`${d}T00:00`));
+
+  /* ---------- clientes do aluguel semanal (dono) ---------- */
+  const CATEGORIAS_CNH = ['A', 'B', 'AB', 'C', 'D', 'E', 'AC', 'AD', 'AE'];
+  const FIM_SEM_DATA = '9999-12-31';
+
+  /* f vem do formulário, em texto. Sem carro, o cliente fica só cadastrado (sem lembrete de pagamento).
+     opc: { unidades: [ids da frota], hoje }. Devolve { erros, cliente } */
+  function validarCliente(f, opc) {
+    const erros = {};
+    const nome = String(f.nome || '').trim().replace(/\s+/g, ' ');
+    if (nome.length < 3 || nome.length > 80 || !nome.includes(' ')) erros.nome = 'erroNome';
+    const cpfDig = String(f.cpf || '').replace(/\D/g, '');
+    if (!cpfValido(f.cpf) || !/^[\d.\s-]+$/.test(String(f.cpf || '').trim())) erros.cpf = 'erroCpf';
+    const cpf = cpfDig.length === 11 ? `${cpfDig.slice(0, 3)}.${cpfDig.slice(3, 6)}.${cpfDig.slice(6, 9)}-${cpfDig.slice(9)}` : '';
+    const cnhNumero = String(f.cnhNumero || '').replace(/[\s.-]/g, '');
+    if (!/^\d{11}$/.test(cnhNumero)) erros.cnhNumero = 'erroCnhNumero';
+    const cnhCategoria = String(f.cnhCategoria || '');
+    if (!CATEGORIAS_CNH.includes(cnhCategoria)) erros.cnhCategoria = 'erroCnhCategoria';
+    const cnhValidade = String(f.cnhValidade || '');
+    if (!dataValida(cnhValidade)) erros.cnhValidade = 'erroDataManut';
+    const endereco = String(f.endereco || '').trim().replace(/\s+/g, ' ');
+    if (endereco.length < 5 || endereco.length > 160) erros.endereco = 'erroEndereco';
+    const fone = String(f.fone || '').trim();
+    const foneDig = fone.replace(/\D/g, '');
+    if (foneDig.length < 10 || foneDig.length > 11 || !/^[\d()\s+-]+$/.test(fone)) erros.fone = 'erroFone';
+    const email = String(f.email || '').trim();
+    if (email && (email.length > 120 || !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email))) erros.email = 'erroEmail';
+    // antecedentes: marcado à mão pelo dono depois de consultar; o app não consulta nada
+    const antOk = f.antOk === true;
+    const antData = String(f.antData || '');
+    if (antOk && !dataValida(antData)) erros.antData = 'erroAntData';
+    else if (antOk && antData > opc.hoje) erros.antData = 'erroDataManutFutura';
+    const antObs = String(f.antObs || '').trim();
+    if (antObs.length > 200) erros.antObs = 'erroObsLonga';
+    const unidade = String(f.unidade || '');
+    if (unidade && !opc.unidades.includes(unidade)) erros.unidade = 'erroClienteCarro';
+    const entrega = String(f.entrega || ''), devolucao = String(f.devolucao || '');
+    let diaVenc = null, valorSemanal = 0;
+    if (unidade) {
+      if (!dataValida(entrega)) erros.entrega = 'erroDataManut';
+      if (devolucao && !dataValida(devolucao)) erros.devolucao = 'erroDataManut';
+      else if (devolucao && !erros.entrega && devolucao < entrega) erros.devolucao = 'erroDevolucaoCliente';
+      diaVenc = /^[0-6]$/.test(String(f.diaVenc ?? '')) ? Number(f.diaVenc) : null;
+      if (diaVenc === null) erros.diaVenc = 'erroDiaVenc';
+      valorSemanal = validarDinheiro(f.valorSemanal, 100, 1000000);
+      if (valorSemanal === null) erros.valorSemanal = 'erroValorSemanal';
+    } else if ((entrega && !dataValida(entrega)) || (devolucao && !dataValida(devolucao))) erros.entrega = 'erroDataManut';
+    return {
+      erros,
+      cliente: {
+        nome, cpf, cnhNumero, cnhCategoria, cnhValidade, endereco, fone, email,
+        antecedentes: { ok: antOk, data: antOk ? antData : '', obs: antObs },
+        unidade, entrega: unidade ? entrega : '', devolucao: unidade ? devolucao : '', diaVenc, valorSemanal: valorSemanal || 0,
+      },
+    };
+  }
+
+  // CNH: vencida | vence (em até 30 dias) | ok
+  function situacaoCnh(c, hoje) {
+    const d = diasEntre(hoje, c.cnhValidade);
+    return { estado: d < 0 ? 'vencida' : d <= 30 ? 'vence' : 'ok', dias: d };
+  }
+
+  // contrato vale de `entrega` até `devolucao` (sem devolução = segue em aberto)
+  function clienteNoPeriodo(c, ini, fim) {
+    return !!(c.unidade && c.entrega) && c.entrega <= fim && (c.devolucao || FIM_SEM_DATA) >= ini;
+  }
+  function clienteDoCarro(estado, unidadeId, hoje) {
+    return (estado.clientes || []).find((c) => c.unidade === unidadeId && clienteNoPeriodo(c, hoje, hoje)) || null;
+  }
+
+  // o carro escolhido pro cliente não pode estar com outro cliente nem com reserva ativa no mesmo período
+  function conflitoCarroCliente(estado, c, ignorarId) {
+    if (!c.unidade) return null;
+    const ini = c.entrega, fim = c.devolucao || FIM_SEM_DATA;
+    if ((estado.clientes || []).some((o) => o.id !== ignorarId && o.unidade === c.unidade && clienteNoPeriodo(o, ini, fim))) return 'erroCarroOutroCliente';
+    if (estado.reservas.some((r) => r.unidade === c.unidade && reservaOcupa(r) && r.ini.slice(0, 10) <= fim && r.fim.slice(0, 10) >= ini)) return 'erroCarroReservado';
+    return null;
+  }
+
+  /* lembrete semanal de pagamento: o vencimento cai toda semana no `diaVenc`, a partir da entrega e até a devolução.
+     Mostra o vencimento mais antigo sem pagamento; tudo pago, mostra o próximo.
+     estado: atrasado | hoje | emDias; `abertos` = vencimentos até hoje ainda sem pagamento. null = nada a cobrar */
+  function lembretePagamento(c, recebimentos, hoje) {
+    if (!c.unidade || !dataValida(c.entrega) || c.diaVenc === null || c.diaVenc === undefined || !(c.valorSemanal > 0)) return null;
+    const fim = c.devolucao || FIM_SEM_DATA;
+    const pagos = new Set(recebimentos.filter((p) => p.cliente === c.id).map((p) => p.venc));
+    let v = somarDias(c.entrega, (c.diaVenc - diaDaSemana(c.entrega) + 7) % 7);
+    const abertos = [];
+    for (let i = 0; i < 1100 && v <= hoje && v <= fim; i++) { if (!pagos.has(v)) abertos.push(v); v = somarDias(v, 7); }
+    if (abertos.length) {
+      const venc = abertos[0];
+      return { venc, dias: diasEntre(hoje, venc), estado: venc < hoje ? 'atrasado' : 'hoje', abertos: abertos.length, valor: c.valorSemanal };
+    }
+    for (let i = 0; i < 60 && pagos.has(v) && v <= fim; i++) v = somarDias(v, 7); // já pago adiantado
+    if (v > fim) return null;
+    return { venc: v, dias: diasEntre(hoje, v), estado: 'emDias', abertos: 0, valor: c.valorSemanal };
+  }
+
+  /* lembrete mensal de perguntar o km ao cliente: 30 dias depois do último km registrado (ou da entrega).
+     estado: atrasado | hoje | emDias */
+  function lembreteKm(c, u, hoje) {
+    if (!u || !clienteNoPeriodo(c, hoje, hoje)) return null;
+    const base = u.kmData && u.kmData > c.entrega ? u.kmData : c.entrega;
+    const proxima = somarDias(base, REGRAS.kmMensalDias), dias = diasEntre(hoje, proxima);
+    return { proxima, dias, base, estado: dias < 0 ? 'atrasado' : dias === 0 ? 'hoje' : 'emDias' };
+  }
+
+  // km informado pelo cliente: número válido e nunca menor que o km que o carro já tem
+  function validarKmInformado(texto, kmAtual) {
+    const km = kmValido(texto);
+    if (km === null) return { erro: 'erroKmCarro', km: null };
+    if (km < kmAtual) return { erro: 'erroKmMenor', km: null };
+    return { erro: null, km };
+  }
+
+  /* ---------- anexos (PDF ou imagem) ---------- */
+  const TIPOS_ANEXO = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp'];
+  // confere o tipo pelos primeiros bytes do arquivo (não pelo nome), pra um arquivo renomeado não passar
+  function tipoPorAssinatura(b) {
+    const ini = (s) => [...s].every((ch, i) => b[i] === ch.charCodeAt(0));
+    if (ini('%PDF-')) return 'application/pdf';
+    if (b[0] === 0xFF && b[1] === 0xD8 && b[2] === 0xFF) return 'image/jpeg';
+    if (b[0] === 0x89 && ini('\x89PNG')) return 'image/png';
+    if (ini('RIFF') && b[8] === 0x57 && b[9] === 0x45 && b[10] === 0x42 && b[11] === 0x50) return 'image/webp';
+    return null;
+  }
+  // nome do anexo: 2 a 60 letras, sem caractere de caminho
+  function validarAnexo(f, hoje) {
+    const erros = {};
+    const nome = String(f.nome || '').trim().replace(/\s+/g, ' ');
+    if (nome.length < 2 || nome.length > 60 || /[\\/<>]/.test(nome)) erros.nome = 'erroNomeAnexo';
+    const data = String(f.data || '');
+    if (!dataValida(data)) erros.data = 'erroDataManut';
+    else if (data > hoje) erros.data = 'erroDataManutFutura';
+    return { erros, anexo: { nome, data } };
   }
 
   function gastoManutencao(manutencoes, unidadeId) {
@@ -683,13 +882,15 @@ fieldset.grupo .opcao + .opcao { margin-top: 0; }
   }
 
   /* margem de um carro no mês: receita das reservas que começam no mês (cancelada conta só a taxa de cancelamento)
+     + aluguel semanal recebido no mês ("marcar pago" nos lembretes)
      − manutenção do mês − custos lançados (ipva/seguro em 1/12) − parte do fixo.
      Sem IPVA lançado cobrindo o mês e com FIPE, entra o IPVA estimado (FIPE × alíquota de locadora ÷ 12). */
   function margemCarro(estado, u, mes) {
     const doMes = (d) => d.slice(0, 7) === mes;
     const res = estado.reservas.filter((r) => r.unidade === u.id && doMes(r.ini));
     const valendo = res.filter((r) => r.status !== 'cancelada');
-    const receita = res.reduce((s, r) => s + (r.status === 'cancelada' ? r.multa || 0 : r.total), 0);
+    const semanal = (estado.recebimentos || []).filter((p) => p.unidade === u.id && doMes(p.data)).reduce((s, p) => s + p.valor, 0);
+    const receita = res.reduce((s, r) => s + (r.status === 'cancelada' ? r.multa || 0 : r.total), 0) + semanal;
     const manutencao = estado.manutencoes.filter((m) => m.unidade === u.id && doMes(m.data)).reduce((s, m) => s + m.valor, 0);
     const meus = estado.custos.filter((c) => c.unidade === u.id);
     const custos = meus.reduce((s, c) => s + custoNoMes(c, mes), 0);
@@ -699,7 +900,7 @@ fieldset.grupo .opcao + .opcao { margin-top: 0; }
     const custoCarro = manutencao + custos + ipvaEstimado;
     const lucro = receita - custoCarro - fixo;
     return {
-      unidade: u.id, receita, reservas: valendo.length, diarias: valendo.reduce((s, r) => s + diarias(r.ini, r.fim), 0),
+      unidade: u.id, receita, semanal, reservas: valendo.length, diarias: valendo.reduce((s, r) => s + diarias(r.ini, r.fim), 0),
       manutencao, custos, ipvaEstimado, fixo, custoCarro, lucro, margem: receita > 0 ? Math.round((lucro * 1000) / receita) / 10 : null,
     };
   }
@@ -772,11 +973,13 @@ fieldset.grupo .opcao + .opcao { margin-top: 0; }
     return ms(aIni) < ms(bFim) + folga && ms(bIni) < ms(aFim) + folga;
   }
 
-  // com `agora`, carro que passou da data e não voltou continua ocupado; `ignorar` = reserva sendo alterada
+  // com `agora`, carro que passou da data e não voltou continua ocupado; `ignorar` = reserva sendo alterada.
+  // carro entregue a um cliente do aluguel semanal fica fora do app no período do contrato
   function unidadesLivres(estado, modeloId, local, ini, fim, agora, ignorar) {
     const atrasado = (r) => agora && r.status === 'retirada' && ms(r.fim) < ms(agora);
+    const comCliente = (u) => (estado.clientes || []).some((c) => c.unidade === u.id && clienteNoPeriodo(c, ini.slice(0, 10), fim.slice(0, 10)));
     return estado.unidades.filter((u) =>
-      u.modelo === modeloId && u.local === local && u.situacao !== 'manutencao' &&
+      u.modelo === modeloId && u.local === local && u.situacao !== 'manutencao' && !comCliente(u) &&
       !estado.reservas.some((r) => r.id !== ignorar && r.unidade === u.id && reservaOcupa(r) && (atrasado(r) || conflita(ini, fim, r.ini, r.fim))));
   }
 
@@ -884,11 +1087,12 @@ fieldset.grupo .opcao + .opcao { margin-top: 0; }
     return { saldo, pendentes, nivel, proximo, faltam };
   }
 
-  // situação do carro no painel: manutenção, em vistoria, alugado ou disponível
-  function estadoCarro(estado, u) {
+  // situação do carro no painel: manutenção, em vistoria, alugado ou disponível (com `hoje`, conta o aluguel semanal)
+  function estadoCarro(estado, u, hoje) {
     if (u.situacao === 'manutencao') return 'manutencao';
     if (u.situacao === 'vistoria') return 'vistoria';
     if (estado.reservas.some((r) => r.unidade === u.id && r.status === 'retirada')) return 'alugado';
+    if (hoje && clienteDoCarro(estado, u.id, hoje)) return 'alugado';
     return 'disponivel';
   }
 
@@ -914,6 +1118,9 @@ fieldset.grupo .opcao + .opcao { margin-top: 0; }
     situacaoTroca, gastoManutencao,
     TIPOS_CUSTO, CUSTOS_ANUAIS, validarDinheiro, validarFipe, validarAliquota, ipva, validarCusto, validarFixo, somarMes,
     custoNoMes, custoCobreMes, totalFixos, fixoPorCarro, margemCarro, margemFrota, simular,
+    digitoRenavam, renavamValido, diasEntre, diaDaSemana, dataValida, CATEGORIAS_CNH, validarCliente, situacaoCnh,
+    clienteNoPeriodo, clienteDoCarro, conflitoCarroCliente, lembretePagamento, lembreteKm, validarKmInformado,
+    TIPOS_ANEXO, tipoPorAssinatura, validarAnexo,
   };
 });
 
@@ -950,6 +1157,9 @@ fieldset.grupo .opcao + .opcao { margin-top: 0; }
     { id: 'spin', nome: 'Chevrolet Spin 7 lugares', cat: 'utilitario', tipo: 'van', cor: '#5C6B73', lugares: 7, portas: 4, malas: 3, cambio: 'automatico', ar: true, tarifa: 22900 },
   ];
 
+  // cor de cada carro de exemplo (texto que aparece no cadastro; o desenho usa a cor do modelo)
+  const COR_DO_MODELO = { mobi: 'Vermelho', hb20: 'Branco', onix: 'Prata', tcross: 'Azul', compass: 'Preto', corolla: 'Branco', strada: 'Prata', spin: 'Cinza' };
+
   // placas no padrão Mercosul, inventadas; situacao: ok | vistoria | manutencao
   // oleoKm / filtroKm = de quantos em quantos km trocar; foto = null até o dono pôr uma
   // fipe = valor FIPE aproximado em reais (fictício, na faixa de BH em 2026), guardado em centavos; 0 = não informado
@@ -972,7 +1182,8 @@ fieldset.grupo .opcao + .opcao { margin-top: 0; }
     ['u16', 'compass', 'VLT7T01', 16642, 'ok', 2024, 172000],
     ['u17', 'hb20', 'VLT3U14', 21008, 'ok', 2023, 77500],
     ['u18', 'spin', 'VLT6V27', 24410, 'ok', 2022, 97000],
-  ].map(([id, modelo, placa, km, situacao, ano, fipe]) => ({ id, modelo, placa, local: 'bh', km, situacao, ano, oleoKm: 10000, filtroKm: 20000, foto: null, fipe: fipe * 100 }));
+  ].map(([id, modelo, placa, km, situacao, ano, fipe]) => ({ id, modelo, placa, local: 'bh', km, situacao, ano, oleoKm: 10000, filtroKm: 20000, foto: null, fipe: fipe * 100,
+    cor: COR_DO_MODELO[modelo], renavam: '', kmData: null }));
 
   // alíquota de IPVA em centésimos de % (100 = 1%): locadora 1%, particular 4% só pra comparar; o dono muda em Configurações
   const CONFIG_PADRAO = { aliqLocadora: 100, aliqParticular: 400 };
@@ -1350,7 +1561,7 @@ fieldset.grupo .opcao + .opcao { margin-top: 0; }
     // manutenção (dono)
     abaManut: 'Manutenção',
     abaManutAlerta: 'Manutenção ({n})',
-    manutAjuda: 'Registre cada troca com o km do momento. O alerta aparece quando faltam {n} km ou menos para a próxima troca.',
+    manutAjuda: 'Registre cada troca com a data e o km do momento. A troca vence pelo km ou pela data, o que chegar primeiro (óleo: a cada 6 meses; filtro: a cada 12 meses). O alerta aparece quando faltam {n} km ou {d} dias ou menos.',
     manutVencidas: '{n} com troca vencida',
     manutPerto: '{n} perto do limite',
     manutTotalGeral: 'Gasto total em manutenção: {v}',
@@ -1426,6 +1637,7 @@ fieldset.grupo .opcao + .opcao { margin-top: 0; }
     tc_outro: 'Outros',
     mgReceita: 'Receita ({n} reservas, {d} diárias)',
     mgReceitaUma: 'Receita (1 reserva, {d} diárias)',
+    mgSemanal: 'Aluguel semanal recebido',
     mgManutencao: 'Manutenção',
     mgCustos: 'Custos lançados (IPVA e seguro em 1/12)',
     mgIpvaEstimado: 'IPVA estimado pela FIPE (1/12)',
@@ -1438,7 +1650,7 @@ fieldset.grupo .opcao + .opcao { margin-top: 0; }
     mgFixoFrota: 'Custo fixo',
     mgMelhor: 'Mais lucro: {p} ({v})',
     mgPior: 'Menos lucro: {p} ({v})',
-    mgAjuda: 'Receita = reservas que começam no mês (cancelada conta só a taxa de cancelamento). IPVA e seguro entram 1/12 por mês; sem IPVA lançado, entra o estimado pela FIPE. O custo fixo é dividido igual entre os carros ativos. Toque na placa para abrir a ficha.',
+    mgAjuda: 'Receita = reservas que começam no mês (cancelada conta só a taxa de cancelamento) + aluguel semanal marcado como pago no mês. IPVA e seguro entram 1/12 por mês; sem IPVA lançado, entra o estimado pela FIPE. O custo fixo é dividido igual entre os carros ativos. Toque na placa para abrir a ficha.',
     mgColReceita: 'Receita',
     mgColCustos: 'Custos do carro',
     mgColFixo: 'Fixo',
@@ -1504,6 +1716,125 @@ fieldset.grupo .opcao + .opcao { margin-top: 0; }
     erroObsOutroCusto: 'Diga na observação qual foi o custo.',
     custoSalvo: 'Custo lançado: {p}, {v}',
     custoApagado: 'Custo apagado',
+    // v3: cor, RENAVAM, troca por data
+    fc_cor: 'Cor (opcional)',
+    fc_renavam: 'RENAVAM (opcional)',
+    fc_renavamAjuda: '11 números, como no documento do carro. O app confere o dígito final.',
+    erroCorCarro: 'Escreva a cor só com letras (de 3 a 20), ex.: Prata.',
+    erroRenavam: 'RENAVAM inválido: são 11 números e o último confere com os outros. Confira no documento.',
+    erroRenavamRepetido: 'Já existe um carro da frota com esse RENAVAM.',
+    fichaRenavam: 'RENAVAM {r}',
+    fichaSemRenavam: 'RENAVAM não informado',
+    fichaCor: 'Cor: {c}',
+    trData: 'Por data: até {d} · faltam {n} dias',
+    trDataPassou: 'Por data: era até {d} · passou {n} dias',
+    trUltima: 'Última troca em {d}',
+    // clientes do aluguel semanal
+    abaClientes: 'Clientes',
+    clientesAjuda: 'Clientes do aluguel semanal. Use dados de mentira nesta demonstração: tudo fica salvo só neste aparelho.',
+    cadastrarCliente: 'Cadastrar cliente',
+    editarClienteTitulo: 'Editar cliente',
+    semClientes: 'Nenhum cliente cadastrado ainda.',
+    fl_nome: 'Nome completo',
+    fl_cpf: 'CPF',
+    fl_cnhNumero: 'Número da CNH (11 números)',
+    fl_cnhCategoria: 'Categoria da CNH',
+    fl_cnhValidade: 'Validade da CNH',
+    fl_endereco: 'Endereço',
+    fl_fone: 'Telefone com DDD',
+    fl_email: 'E-mail (opcional)',
+    fl_antTitulo: 'Antecedentes',
+    fl_antOk: 'Antecedentes verificados',
+    fl_antAjuda: 'Marcado à mão por você depois de consultar. O app não consulta nada.',
+    fl_antData: 'Data da verificação',
+    fl_antObs: 'Observação (opcional)',
+    fl_aluguel: 'Aluguel semanal',
+    fl_unidade: 'Carro',
+    fl_semCarro: 'Sem carro (só cadastro)',
+    fl_entrega: 'Data de entrega do carro',
+    fl_devolucao: 'Data de devolução (opcional)',
+    fl_devolucaoAjuda: 'Em branco = contrato sem data para terminar.',
+    fl_diaVenc: 'Dia do vencimento (toda semana)',
+    fl_valorSemanal: 'Valor semanal (R$)',
+    fl_salvar: 'Salvar cliente',
+    sem_0: 'Domingo', sem_1: 'Segunda-feira', sem_2: 'Terça-feira', sem_3: 'Quarta-feira', sem_4: 'Quinta-feira', sem_5: 'Sexta-feira', sem_6: 'Sábado',
+    erroCnhNumero: 'O número da CNH tem 11 números.',
+    erroCnhCategoria: 'Escolha a categoria da CNH.',
+    erroEndereco: 'Escreva o endereço (de 5 a 160 letras).',
+    erroAntData: 'Diga a data em que os antecedentes foram verificados.',
+    erroClienteCarro: 'Escolha um carro da frota.',
+    erroDevolucaoCliente: 'A devolução não pode ser antes da entrega.',
+    erroDiaVenc: 'Escolha o dia do vencimento.',
+    erroValorSemanal: 'Valor semanal de R$ 1 a R$ 10.000 (ex.: 650).',
+    erroCarroOutroCliente: 'Esse carro já está com outro cliente nesse período.',
+    erroCarroReservado: 'Esse carro tem reserva ativa nesse período. Escolha outro carro ou outras datas.',
+    erroCarroComCliente: 'O {p} está vinculado a um cliente. Tire o carro do cadastro do cliente antes de remover.',
+    clienteSalvo: 'Cliente {n} salvo',
+    clienteRemovido: 'Cliente {n} removido',
+    removerCliente: 'Remover cliente',
+    removerClienteCerteza: 'Remover {n}? Os anexos dele somem deste aparelho. Pagamentos já recebidos continuam na margem do carro.',
+    cnh_vencida: 'CNH vencida',
+    cnh_vence: 'CNH vence em {n} dias',
+    cnh_ok: 'CNH em dia',
+    cnhTxt: 'CNH {c} · validade {d}',
+    ant_sim: 'Antecedentes verificados em {d}',
+    ant_nao: 'Antecedentes não verificados',
+    clCarro: 'Carro: {c}',
+    clSemCarro: 'Sem carro no momento',
+    clCarroRemovido: 'carro fora da frota',
+    clPeriodo: 'Entrega {e} · devolução {d}',
+    clSemDevolucao: 'sem data',
+    clValor: '{v} por semana, vence toda {d}',
+    clPagamentos: 'Últimos pagamentos',
+    clPagoEm: 'Semana de {v}: {r} (pago em {p})',
+    pagamentoApagado: 'Pagamento apagado; a semana volta a ficar em aberto',
+    // anexos
+    anexos: 'Anexos',
+    anexosN: 'Anexos ({n})',
+    anexosDe: 'Anexos: {n}',
+    anexosAjuda: 'PDF ou imagem (JPG, PNG ou WEBP), até {n} MB por arquivo: contrato, CNH, comprovante, documento do carro. Fica guardado só neste aparelho; outro celular não vê.',
+    semAnexos: 'Nenhum arquivo anexado.',
+    fa_arquivo: 'Arquivo',
+    fa_nome: 'Nome do anexo',
+    fa_nomeAjuda: 'Ex.: Contrato assinado, CNH frente, Comprovante semana 3.',
+    fa_data: 'Data do documento',
+    fa_salvar: 'Anexar',
+    abrirAnexo: 'Abrir',
+    baixarAnexo: 'Baixar',
+    anexoSalvo: 'Anexo {n} guardado neste aparelho',
+    anexoApagado: 'Anexo apagado',
+    erroAnexoFalta: 'Escolha um arquivo.',
+    erroAnexoTipo: 'Só PDF ou imagem (JPG, PNG ou WEBP).',
+    erroAnexoGrande: 'Arquivo grande demais: o limite é {n} MB por arquivo.',
+    erroNomeAnexo: 'Dê um nome de 2 a 60 letras, sem / ou \\.',
+    erroAnexoAparelho: 'Não consegui guardar ou abrir o arquivo neste aparelho (memória cheia ou navegador em modo privado?).',
+    erroAnexoSumiu: 'O arquivo não está mais neste aparelho. Remova e anexe de novo.',
+    // lembretes
+    lembretes: 'Lembretes',
+    lembretesN: 'Lembretes ({n})',
+    abaHojeN: 'Hoje ({n})',
+    lembretesAviso: 'Neste protótipo os lembretes aparecem só aqui dentro do app. Nada é enviado por WhatsApp, SMS ou e-mail.',
+    semLembretes: 'Nenhum cliente com aluguel semanal ativo.',
+    lemPagamento: 'Pagamento semanal',
+    lemKm: 'Perguntar o km ao cliente',
+    lem_atrasado: 'atrasado {n} dias',
+    lem_atrasadoUm: 'atrasado 1 dia',
+    lem_hoje: 'vence hoje',
+    lem_amanha: 'vence amanhã',
+    lem_emDias: 'vence em {n} dias',
+    lemSemanasAbertas: '{n} semanas em aberto',
+    lemPagTxt: '{v} · vencimento {d}',
+    marcarPago: 'Marcar pago',
+    pagoOk: 'Pagamento de {n} registrado: {v} entra na margem do {p}',
+    lemKm_atrasado: 'pergunte hoje (atrasado {n} dias)',
+    lemKm_hoje: 'pergunte hoje',
+    lemKm_emDias: 'próxima pergunta em {n} dias',
+    lemKmTxt: 'Km atual no sistema: {k} · último registro {d}',
+    lemKmNovo: 'Km informado pelo cliente',
+    registrarKm: 'Registrar km',
+    kmRegistrado: 'Km do {p} atualizado: {k} km',
+    kmRegistradoTroca: 'Km do {p} atualizado: {k} km. Atenção: troca de {t} {s}',
+    erroKmMenor: 'O km não pode ser menor que o atual do carro.',
   };
 
   function novaReserva(L, o) {
@@ -1542,6 +1873,7 @@ fieldset.grupo .opcao + .opcao { margin-top: 0; }
       { codigo: 'M4PQW', unidade: 'u15', nome: 'Fulano de Tal', ini: d(-90, '10:00'), fim: d(-85, '10:00'), status: 'devolvida', minha: true, checkin: true,
         vistoria: { ret: v([], 8, 10700), dev: v([], 8, 11563) } },
     ].map((o) => novaReserva(L, o));
+    const clientes = clientesExemplo(L, hoje);
     // histórico de locações já concluídas dos últimos ~3 meses, pra ficha e margem terem receita de verdade.
     // sorteio com semente fixa: a demonstração sai igual toda vez
     let semente = 7;
@@ -1552,7 +1884,9 @@ fieldset.grupo .opcao + .opcao { margin-top: 0; }
       for (let k = 0; fim > -95; k++) {
         const ini = fim - (2 + ((i * 7 + k * 3) % 5));
         const o = { unidade: u.id, ini: d(ini, '10:00'), fim: d(fim, '09:00') };
-        const ocupado = [...reservas, ...historico].some((r) => r.unidade === u.id && L.conflita(o.ini, o.fim, r.ini, r.fim));
+        // carro com cliente do aluguel semanal não tem locação diária no mesmo período
+        const comCliente = clientes.some((c) => c.unidade === u.id && L.clienteNoPeriodo(c, o.ini.slice(0, 10), o.fim.slice(0, 10)));
+        const ocupado = comCliente || [...reservas, ...historico].some((r) => r.unidade === u.id && L.conflita(o.ini, o.fim, r.ini, r.fim));
         if (!ocupado) {
           const codigo = L.novoCodigo(codigos, sortear);
           codigos.push(codigo);
@@ -1587,16 +1921,62 @@ fieldset.grupo .opcao + .opcao { margin-top: 0; }
     });
     lancar('u13', 'multa', L.somarDias(hoje, -20), 19523, 'Estacionamento irregular');
     lancar('u7', 'outro', L.somarDias(hoje, -12), 35000, 'Higienização interna completa');
+    const unidades = UNIDADES.map((u) => ({ ...u, renavam: renavamExemplo(L, u.id), kmData: KM_DATA[u.id] === undefined ? null : L.somarDias(hoje, KM_DATA[u.id]) }));
     return {
-      versao: 4, semeadoEm: hoje,
+      versao: 5, semeadoEm: hoje,
       modelos: MODELOS.map(({ tarifa, ...m }) => ({ ...m })),
-      unidades: UNIDADES.map((u) => ({ ...u })), removidos: [],
+      unidades, removidos: [],
       reservas, tarifas, manutencoes, custos,
       fixos: FIXOS.map((f) => ({ ...f })), config: { ...CONFIG_PADRAO },
+      clientes, recebimentos: recebimentosExemplo(L, clientes, hoje), anexos: [],
     };
   }
 
-  return { CONFIG, LOCAIS, CATEGORIAS, DESENHO_POR_CATEGORIA, MODELOS, UNIDADES, PLANOS, EXTRAS, AVARIAS, FOTOS, TEXTOS, CONFIG_PADRAO, FIXOS, semear };
+  // RENAVAM de exemplo: 10 dígitos inventados + o dígito verificador certo (passa na validação, não é de carro real)
+  function renavamExemplo(L, id) {
+    const base = String(1029384756 + Number(id.slice(1)) * 7919).padStart(10, '0').slice(-10);
+    return base + L.digitoRenavam(base);
+  }
+
+  // dia (a partir de hoje) do último km informado pelo cliente; só nos carros do aluguel semanal de exemplo
+  const KM_DATA = { u8: -35, u12: -10 };
+
+  /* clientes do aluguel semanal (todos fictícios; CPFs de teste que passam na conta, e-mail teste@teste.com).
+     As datas contam a partir de hoje pra a demonstração mostrar: um pagamento vencendo hoje, um atrasado,
+     um que vence em 3 dias, um km mensal atrasado e uma CNH vencida */
+  function clientesExemplo(L, hoje) {
+    const dia = (n) => L.somarDias(hoje, n), semana = (n) => L.diaDaSemana(dia(n));
+    const endereco = (n) => `Rua Exemplo, ${n} - Bairro Fictício, Belo Horizonte - MG`;
+    return [
+      { id: 'cl1', nome: 'Rogério Batista Fontes', cpf: '529.982.247-25', cnhNumero: '04718263950', cnhCategoria: 'B', cnhValidade: dia(400),
+        endereco: endereco(120), fone: '(31) 90000-0001', email: 'teste@teste.com',
+        antecedentes: { ok: true, data: dia(-46), obs: 'Nada consta (exemplo)' },
+        unidade: 'u8', entrega: dia(-45), devolucao: '', diaVenc: semana(0), valorSemanal: 65000 },
+      { id: 'cl2', nome: 'Simone Arantes Lacerda', cpf: '111.444.777-35', cnhNumero: '15829374061', cnhCategoria: 'AB', cnhValidade: dia(200),
+        endereco: endereco(345), fone: '(31) 90000-0002', email: 'teste@teste.com',
+        antecedentes: { ok: true, data: dia(-21), obs: '' },
+        unidade: 'u12', entrega: dia(-20), devolucao: '', diaVenc: semana(-2), valorSemanal: 85000 },
+      { id: 'cl3', nome: 'Wesley Damasceno Prado', cpf: '123.456.789-09', cnhNumero: '26930485172', cnhCategoria: 'B', cnhValidade: dia(-10),
+        endereco: endereco(78), fone: '(31) 90000-0003', email: 'teste@teste.com',
+        antecedentes: { ok: false, data: '', obs: 'Aguardando certidão (exemplo)' },
+        unidade: 'u16', entrega: dia(-9), devolucao: dia(51), diaVenc: semana(3), valorSemanal: 55000 },
+    ];
+  }
+
+  // semanas já pagas no dia do vencimento; fica em aberto o de hoje (cl1) e o de 2 dias atrás (cl2)
+  function recebimentosExemplo(L, clientes, hoje) {
+    const lista = [], emAberto = L.somarDias(hoje, -2);
+    for (const c of clientes) {
+      let v = L.somarDias(c.entrega, (c.diaVenc - L.diaDaSemana(c.entrega) + 7) % 7);
+      for (; v < hoje; v = L.somarDias(v, 7)) {
+        if (c.id === 'cl2' && v === emAberto) continue;
+        lista.push({ id: 'pg' + (lista.length + 1), cliente: c.id, unidade: c.unidade, venc: v, data: v, valor: c.valorSemanal });
+      }
+    }
+    return lista;
+  }
+
+  return { CONFIG, LOCAIS, CATEGORIAS, DESENHO_POR_CATEGORIA, MODELOS, UNIDADES, PLANOS, EXTRAS, AVARIAS, FOTOS, TEXTOS, CONFIG_PADRAO, FIXOS, semear, clientesExemplo, recebimentosExemplo, renavamExemplo };
 });
 
 </script>
@@ -1745,6 +2125,48 @@ fieldset.grupo .opcao + .opcao { margin-top: 0; }
 
 </script>
 <script>
+/* Mimizinho: arquivos anexados (PDF e imagem) guardados no próprio aparelho, no IndexedDB do navegador.
+   localStorage não comporta arquivo; o IndexedDB comporta. Nada sai do aparelho: não há servidor nem envio.
+   O app guarda a lista (nome, data, tipo, tamanho) junto com os outros dados e aqui só o conteúdo, pela mesma id. */
+(function () {
+  const BANCO = 'mimizinho-anexos', LOJA = 'arquivos';
+  let aberto = null;
+
+  function abrir() {
+    if (aberto) return aberto;
+    aberto = new Promise((ok, falha) => {
+      if (!window.indexedDB) { falha(new Error('este navegador não tem IndexedDB')); return; }
+      const pedido = indexedDB.open(BANCO, 1);
+      pedido.onupgradeneeded = () => pedido.result.createObjectStore(LOJA);
+      pedido.onsuccess = () => ok(pedido.result);
+      pedido.onerror = () => falha(pedido.error);
+      pedido.onblocked = () => falha(new Error('banco de anexos bloqueado por outra aba'));
+    });
+    aberto.catch(() => { aberto = null; }); // deixa tentar de novo na próxima vez
+    return aberto;
+  }
+
+  async function operar(modo, fazer) {
+    const db = await abrir();
+    return new Promise((ok, falha) => {
+      const tx = db.transaction(LOJA, modo);
+      const pedido = fazer(tx.objectStore(LOJA));
+      tx.oncomplete = () => ok(pedido ? pedido.result : undefined);
+      tx.onerror = () => falha(tx.error);
+      tx.onabort = () => falha(tx.error || new Error('gravação de anexo abortada (memória cheia?)'));
+    });
+  }
+
+  window.Anexos = {
+    guardar: (id, blob) => operar('readwrite', (s) => s.put(blob, id)),
+    ler: (id) => operar('readonly', (s) => s.get(id)),
+    apagar: (id) => operar('readwrite', (s) => s.delete(id)),
+    limpar: () => operar('readwrite', (s) => s.clear()),
+  };
+})();
+
+</script>
+<script>
 /* Mimizinho: telas do cliente e da locadora. Um único estado salvo no aparelho alimenta as duas vistas,
    então a reserva feita de um lado aparece no outro na hora. */
 (function () {
@@ -1770,6 +2192,8 @@ fieldset.grupo .opcao + .opcao { margin-top: 0; }
     // ficha, custos, margem e simulador (dono)
     fichaId: null, mes: hojeTxt().slice(0, 7), sim: simPadrao(), novoFixo: { nome: '', valor: '' }, erroNovoFixo: {},
     erroFixo: {}, erroConfig: {}, certezaCusto: null, certezaFixo: null,
+    // clientes, anexos e lembretes (dono)
+    kmLembrete: {}, erroKmLembrete: {}, certezaPagamento: null, certezaAnexo: null,
   };
   function simPadrao() { return { n: 10, custo: null, diaria: null, fipe: null, erros: {} }; }
 
@@ -1782,7 +2206,7 @@ fieldset.grupo .opcao + .opcao { margin-top: 0; }
         && D.CATEGORIAS.includes(m.cat) && ['hatch', 'sedan', 'suv', 'picape', 'van'].includes(m.tipo) && /^#[0-9A-Fa-f]{6}$/.test(m.cor)
         && (m.cambio === undefined || ['manual', 'automatico'].includes(m.cambio))
         && ['lugares', 'portas', 'malas'].every((k) => m[k] === undefined || int(m[k]));
-      if (s.versao !== 4 || !Array.isArray(s.modelos) || !s.modelos.every(modeloOk)) return false;
+      if (s.versao !== 5 || !Array.isArray(s.modelos) || !s.modelos.every(modeloOk)) return false;
       const modelos = s.modelos.map((m) => m.id), locais = D.LOCAIS.map((l) => l.id), zonas = C.ZONAS.map((z) => z.id);
       const planos = D.PLANOS.map((p) => p.id), extras = D.EXTRAS.map((e) => e.id);
       const num = Number.isFinite;
@@ -1790,9 +2214,24 @@ fieldset.grupo .opcao + .opcao { margin-top: 0; }
       const unidadeOk = (u) => /^u\d+$/.test(u.id) && modelos.includes(u.modelo) && locais.includes(u.local)
         && ['ok', 'vistoria', 'manutencao'].includes(u.situacao) && typeof u.placa === 'string' && u.placa.length <= 10 && num(u.km)
         && int(u.ano) && int(u.oleoKm) && u.oleoKm > 0 && int(u.filtroKm) && u.filtroKm > 0 && fotoOk(u.foto)
-        && (u.fipe === undefined || (int(u.fipe) && u.fipe >= 0));
+        && (u.fipe === undefined || (int(u.fipe) && u.fipe >= 0))
+        && (u.cor === undefined || (typeof u.cor === 'string' && u.cor.length <= 20))
+        && (u.renavam === undefined || u.renavam === '' || /^\d{11}$/.test(u.renavam))
+        && (u.kmData === undefined || u.kmData === null || L.dataValida(u.kmData));
       const frota = [...s.unidades, ...s.removidos];
       const dataOk = (d) => typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d) && !Number.isNaN(L.ms(`${d}T00:00`));
+      const txt = (v, max) => typeof v === 'string' && v.length <= max;
+      const dataOuVazio = (d) => d === '' || dataOk(d);
+      const clienteOk = (c) => /^cl\d+$/.test(c.id) && txt(c.nome, 80) && txt(c.cpf, 14) && /^\d{11}$/.test(c.cnhNumero)
+        && L.CATEGORIAS_CNH.includes(c.cnhCategoria) && dataOk(c.cnhValidade) && txt(c.endereco, 160) && txt(c.fone, 20) && txt(c.email, 120)
+        && typeof c.antecedentes.ok === 'boolean' && dataOuVazio(c.antecedentes.data) && txt(c.antecedentes.obs, 200)
+        && (c.unidade === '' || frota.some((u) => u.id === c.unidade)) && dataOuVazio(c.entrega) && dataOuVazio(c.devolucao)
+        && (c.diaVenc === null || (int(c.diaVenc) && c.diaVenc >= 0 && c.diaVenc <= 6)) && int(c.valorSemanal) && c.valorSemanal >= 0;
+      const recebOk = (p) => /^pg\d+$/.test(p.id) && /^cl\d+$/.test(p.cliente) && typeof p.unidade === 'string'
+        && dataOk(p.venc) && dataOk(p.data) && int(p.valor) && p.valor >= 0;
+      const anexoOk = (a) => /^ax\d+$/.test(a.id) && /^(cl|u)\d+$/.test(a.dono) && txt(a.nome, 60) && L.TIPOS_ANEXO.includes(a.tipo)
+        && int(a.tamanho) && a.tamanho >= 0 && dataOk(a.data);
+      if (!s.clientes.every(clienteOk) || !s.recebimentos.every(recebOk) || !s.anexos.every(anexoOk)) return false;
       const manutOk = (m) => /^mt\d+$/.test(m.id) && frota.some((u) => u.id === m.unidade) && L.TIPOS_MANUTENCAO.includes(m.tipo)
         && dataOk(m.data) && int(m.km) && int(m.valor) && typeof m.obs === 'string' && m.obs.length <= 200;
       if (!s.unidades.every(unidadeOk) || !s.removidos.every(unidadeOk) || !s.manutencoes.every(manutOk)) return false;
@@ -1833,9 +2272,15 @@ fieldset.grupo .opcao + .opcao { margin-top: 0; }
       if (bruto) {
         let salvo = JSON.parse(bruto);
         if (salvo && salvo.versao === 3) salvo = migrarDaV3(salvo, hoje);
+        if (salvo && salvo.versao === 4) salvo = migrarDaV4(salvo, hoje);
         if (salvoValido(salvo)) {
-          // carro cadastrado antes do campo FIPE: fica "não informado"
-          for (const u of [...salvo.unidades, ...salvo.removidos]) if (u.fipe === undefined) u.fipe = 0;
+          // carro cadastrado antes dos campos FIPE, cor e RENAVAM: fica "não informado"
+          for (const u of [...salvo.unidades, ...salvo.removidos]) {
+            if (u.fipe === undefined) u.fipe = 0;
+            if (u.cor === undefined) u.cor = '';
+            if (u.renavam === undefined) u.renavam = '';
+            if (u.kmData === undefined) u.kmData = null;
+          }
           if (salvo.semeadoEm === hoje) return salvo;
           log('dia novo: frota, preços e manutenções continuam; as reservas de exemplo recomeçam a partir de hoje');
           return virarDia(salvo, hoje);
@@ -1860,13 +2305,36 @@ fieldset.grupo .opcao + .opcao { margin-top: 0; }
     return { ...s, versao: 4, custos: novo.custos.filter((c) => ativosDoExemplo.includes(c.unidade)), fixos: novo.fixos, config: novo.config };
   }
 
-  // o que o dono cadastrou (carros, preços, manutenções, custos, fixos, alíquotas) não pode sumir na virada do dia
+  /* salvo da v4 (sem clientes nem anexos): mantém tudo e acrescenta o que é novo.
+     Carro de exemplo ganha cor e RENAVAM de exemplo; carro do dono fica com os dois em branco.
+     Os clientes de exemplo só entram se o carro deles continua na frota e está livre nas datas do contrato. */
+  function migrarDaV4(s, hoje) {
+    const novo = D.semear(L, hoje);
+    const lista = (v) => (Array.isArray(v) ? v : []);
+    const doExemplo = (u) => !!u && D.UNIDADES.some((x) => x.id === u.id && x.placa === u.placa);
+    for (const u of [...lista(s.unidades), ...lista(s.removidos)]) {
+      if (!u) continue;
+      if (u.cor === undefined) u.cor = doExemplo(u) ? D.UNIDADES.find((x) => x.id === u.id).cor : '';
+      if (u.renavam === undefined) u.renavam = doExemplo(u) ? D.renavamExemplo(L, u.id) : '';
+      if (u.kmData === undefined) u.kmData = null;
+    }
+    const ativos = lista(s.unidades).filter(doExemplo).map((u) => u.id);
+    const clientes = novo.clientes.filter((c) => ativos.includes(c.unidade) && !L.conflitoCarroCliente({ reservas: lista(s.reservas), clientes: [] }, c, null));
+    const ids = clientes.map((c) => c.id);
+    log('atualizando os dados salvos para a versão com clientes, anexos e lembretes; nada do que foi cadastrado se perde');
+    return { ...s, versao: 5, clientes, recebimentos: novo.recebimentos.filter((p) => ids.includes(p.cliente)), anexos: [] };
+  }
+
+  // o que o dono cadastrou (carros, preços, manutenções, custos, fixos, alíquotas, clientes, pagamentos, anexos) não pode sumir na virada do dia
   function virarDia(salvo, hoje) {
     const novo = D.semear(L, hoje);
     const carroAindaIgual = (r) => salvo.unidades.some((u) => u.id === r.unidade && u.modelo === r.modelo);
+    // reserva de exemplo não cai em cima do contrato de um cliente do aluguel semanal
+    const semCliente = (r) => !salvo.clientes.some((c) => c.unidade === r.unidade && L.clienteNoPeriodo(c, r.ini.slice(0, 10), r.fim.slice(0, 10)));
     return { ...novo, modelos: salvo.modelos, unidades: salvo.unidades, removidos: salvo.removidos, tarifas: salvo.tarifas,
       manutencoes: salvo.manutencoes, custos: salvo.custos, fixos: salvo.fixos, config: salvo.config,
-      reservas: novo.reservas.filter(carroAindaIgual) };
+      clientes: salvo.clientes, recebimentos: salvo.recebimentos, anexos: salvo.anexos,
+      reservas: novo.reservas.filter((r) => carroAindaIgual(r) && semCliente(r)) };
   }
 
   function salvar() {
@@ -1896,6 +2364,8 @@ fieldset.grupo .opcao + .opcao { margin-top: 0; }
   const temReservaAtiva = (u) => E.reservas.some((r) => r.unidade === u.id && L.reservaOcupa(r));
   const fmtNum = (n) => Number(n).toLocaleString(LOCALE);
   const fmtDataAno = new Intl.DateTimeFormat(LOCALE, { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'UTC' });
+  const dataBR = (d) => fmtDataAno.format(L.ms(`${d}T00:00`));
+  const hojeData = () => hojeTxt().slice(0, 10);
   const anoAtual = () => Number(hojeTxt().slice(0, 4));
   const reaisTxt = (c) => (c % 100 ? (c / 100).toFixed(2).replace('.', ',') : String(c / 100));
   const reserva = (id) => E.reservas.find((r) => r.id === id);
@@ -2404,7 +2874,7 @@ fieldset.grupo .opcao + .opcao { margin-top: 0; }
     const tabela = (lista, cab, fn) => lista.length ? `<div class="tabela-rolo"><table class="tabela">
         <thead><tr><th>${t('colHora')}</th><th>${t('colCodigo')}</th><th>${t('colCliente')}</th><th>${t('colCarro')}</th><th>${cab}</th></tr></thead>
         <tbody>${lista.map(fn).join('')}</tbody></table></div>` : `<p class="vazio">${t('nadaHoje')}</p>`;
-    return `${filtroLojas()}
+    return `${blocoLembretes()}${filtroLojas()}
       <section class="bloco"><h2 class="rotulo">${t('retiradasHoje')}</h2>
         ${tabela(ret, t('colCheckin'), (r) => linha(r, r.ini, L.checkinFeito(r) ? `<span class="selo ok">${t('ckFeito')}</span>` : `<span class="selo atencao">${t('ckFalta')}</span>`))}</section>
       <section class="bloco"><h2 class="rotulo">${t('devolucoesHoje')}</h2>
@@ -2476,12 +2946,12 @@ fieldset.grupo .opcao + .opcao { margin-top: 0; }
       <div class="tabela-rolo" id="rolo-frota" tabindex="0"><table class="tabela">
       <thead><tr><th>${t('placaCarro')}</th><th>${t('colCarro')}</th><th>${t('colLocal')}</th><th class="num">${t('colKm')}</th><th>${t('colSituacao')}</th><th></th></tr></thead>
       <tbody>${carros.map((u) => {
-        const estado = L.estadoCarro(E, u);
+        const estado = L.estadoCarro(E, u, hojeData());
         const botao = estado === 'alugado' ? `<button class="fino" disabled>${t('mandarManutencao')}</button>`
           : estado === 'disponivel' ? `<button class="fino" data-acao="manutencao" data-x="${u.id}">${t('mandarManutencao')}</button>`
           : `<button class="fino" data-acao="liberar" data-x="${u.id}">${t('liberar')}</button>`;
         return `<tr>
-          <td>${placaHTML(u.placa)}</td><td>${esc(modelo(u.modelo).nome)}<small>${t('cat_' + modelo(u.modelo).cat)} · ${esc(u.ano)}</small></td><td>${esc(local(u.local).nome)}</td>
+          <td>${placaHTML(u.placa)}</td><td>${esc(modelo(u.modelo).nome)}<small>${t('cat_' + modelo(u.modelo).cat)} · ${esc(u.ano)}${u.cor ? ` · ${esc(u.cor)}` : ''}</small></td><td>${esc(local(u.local).nome)}</td>
           <td class="num">${esc(Number(u.km).toLocaleString(LOCALE))}</td>
           <td><span class="selo car-${estado}">${t('car_' + estado)}</span></td>
           <td><span class="acoes-linha">${botao}<button class="fino" data-acao="editarCarro" data-x="${u.id}">${t('editarCarro')}</button></span></td>
@@ -2507,8 +2977,9 @@ fieldset.grupo .opcao + .opcao { margin-top: 0; }
   const PESO_TROCA = { passou: 0, perto: 1, semRegistro: 2, ok: 3 };
 
   function trocasDaFrota() {
+    const hoje = hojeData();
     return E.unidades.map((u) => {
-      const oleo = L.situacaoTroca(u, E.manutencoes, 'oleo'), filtro = L.situacaoTroca(u, E.manutencoes, 'filtro');
+      const oleo = L.situacaoTroca(u, E.manutencoes, 'oleo', hoje), filtro = L.situacaoTroca(u, E.manutencoes, 'filtro', hoje);
       return { u, oleo, filtro, pior: Math.min(PESO_TROCA[oleo.estado], PESO_TROCA[filtro.estado]) };
     });
   }
@@ -2517,9 +2988,11 @@ fieldset.grupo .opcao + .opcao { margin-top: 0; }
     const chave = `${u.id}-${tipo}`, erro = UI.erroIntervalo[chave], id = `int-${tipo}-${u.id}`;
     const txt = s.estado === 'semRegistro' ? t('trSemRegistroTxt')
       : t(s.faltam > 0 ? 'trFaltam' : 'trPassou', { p: fmtNum(s.proximaKm), f: fmtNum(Math.abs(s.faltam)) });
+    const porData = s.estado === 'semRegistro' ? ''
+      : `<small>${esc(t('trUltima', { d: dataBR(s.ultimaData) }))}</small><small>${esc(t(s.diasFaltam > 0 ? 'trData' : 'trDataPassou', { d: dataBR(s.proximaData), n: Math.abs(s.diasFaltam) }))}</small>`;
     return `<div class="troca tr-${s.estado}">
       <div class="troca-topo"><strong>${t('curto_' + tipo)}</strong><span class="selo ${SELO_TROCA[s.estado]}">${t('tr_' + s.estado)}</span></div>
-      <small>${esc(txt)}</small>
+      <small>${esc(txt)}</small>${porData}
       <label for="${id}">${t(tipo === 'oleo' ? 'intervaloOleo' : 'intervaloFiltro')}</label>
       <input id="${id}" inputmode="numeric" value="${esc(s.intervalo)}" data-campo="intervalo" data-x="${u.id}" data-y="${tipo}" aria-invalid="${!!erro}">
       ${erro ? `<p class="erro" role="alert">${t('erroIntervalo')}</p>` : ''}
@@ -2544,7 +3017,7 @@ fieldset.grupo .opcao + .opcao { margin-top: 0; }
     const lista = trocasDaFrota().sort((a, b) => a.pior - b.pior);
     const vencidas = lista.filter((x) => x.pior === 0).length, perto = lista.filter((x) => x.pior === 1).length;
     const total = E.unidades.reduce((s, u) => s + L.gastoManutencao(E.manutencoes, u.id), 0);
-    return `<p class="nota">${esc(t('manutAjuda', { n: fmtNum(L.REGRAS.avisoTrocaKm) }))}</p>
+    return `<p class="nota">${esc(t('manutAjuda', { n: fmtNum(L.REGRAS.avisoTrocaKm), d: L.REGRAS.avisoTrocaDias }))}</p>
       <div class="manut-resumo">
         ${vencidas ? `<span class="selo pare">${esc(t('manutVencidas', { n: vencidas }))}</span>` : ''}
         ${perto ? `<span class="selo atencao">${esc(t('manutPerto', { n: perto }))}</span>` : ''}
@@ -2580,7 +3053,8 @@ fieldset.grupo .opcao + .opcao { margin-top: 0; }
 
   function contaMargem(mg) {
     const linhas = [
-      [t(mg.reservas === 1 ? 'mgReceitaUma' : 'mgReceita', { n: mg.reservas, d: mg.diarias }), mg.receita],
+      [t(mg.reservas === 1 ? 'mgReceitaUma' : 'mgReceita', { n: mg.reservas, d: mg.diarias }), mg.receita - mg.semanal],
+      ...(mg.semanal ? [[t('mgSemanal'), mg.semanal]] : []),
       [t('mgManutencao'), -mg.manutencao],
       [t('mgCustos'), -mg.custos],
       ...(mg.ipvaEstimado ? [[t('mgIpvaEstimado'), -mg.ipvaEstimado]] : []),
@@ -2602,7 +3076,8 @@ fieldset.grupo .opcao + .opcao { margin-top: 0; }
   function fichaCarro() {
     const u = unidadeFicha();
     if (!u) return `<p class="vazio">${t('semCarros')}</p>`;
-    const n = E.unidades.length, i = E.unidades.indexOf(u), m = modelo(u.modelo), estado = L.estadoCarro(E, u);
+    const n = E.unidades.length, i = E.unidades.indexOf(u), m = modelo(u.modelo), estado = L.estadoCarro(E, u, hojeData());
+    const cliente = L.clienteDoCarro(E, u.id, hojeData());
     const ant = E.unidades[(i - 1 + n) % n], prox = E.unidades[(i + 1) % n];
     const mg = L.margemCarro(E, u, UI.mes);
     const res = E.reservas.filter((r) => r.unidade === u.id && r.ini.slice(0, 7) === UI.mes).sort((a, b) => L.ms(b.ini) - L.ms(a.ini));
@@ -2620,7 +3095,10 @@ fieldset.grupo .opcao + .opcao { margin-top: 0; }
           <div class="ficha-dados">${placaHTML(u.placa)}<strong>${esc(m.nome)}</strong>
             <small>${t('cat_' + m.cat)} · ${esc(u.ano)} · ${esc(t('kmAtual', { n: fmtNum(u.km) }))}</small>
             <small>${u.fipe ? esc(t('fichaFipe', { v: moeda(u.fipe) })) : t('fichaSemFipe')}</small>
-            <span class="acoes-linha"><span class="selo car-${estado}">${t('car_' + estado)}</span><button class="fino" data-acao="editarCarro" data-x="${u.id}">${t('editarCarro')}</button></span>
+            <small>${u.cor ? `${esc(t('fichaCor', { c: u.cor }))} · ` : ''}${u.renavam ? esc(t('fichaRenavam', { r: u.renavam })) : t('fichaSemRenavam')}</small>
+            ${cliente ? `<small>${t('colCliente')}: <strong>${esc(cliente.nome)}</strong></small>` : ''}
+            <span class="acoes-linha"><span class="selo car-${estado}">${t('car_' + estado)}</span><button class="fino" data-acao="editarCarro" data-x="${u.id}">${t('editarCarro')}</button>
+              <button class="fino" data-acao="abrirAnexos" data-x="${u.id}">${esc(t('anexosN', { n: anexosDe(u.id).length }))}</button></span>
           </div>
         </div>
         ${mesNav()}
@@ -2758,13 +3236,95 @@ fieldset.grupo .opcao + .opcao { margin-top: 0; }
     </section>`;
   }
 
+  /* ---------- clientes do aluguel semanal, anexos e lembretes (dono) ---------- */
+  const anexosDe = (dono) => E.anexos.filter((a) => a.dono === dono);
+  const clienteId = (id) => E.clientes.find((c) => c.id === id);
+  const SELO_LEM = { atrasado: 'pare', hoje: 'atencao', emDias: '' };
+  const SELO_CNH = { vencida: 'pare', vence: 'atencao', ok: 'ok' };
+  const carroTxt = (id) => { const u = unidade(id); return u ? nomeCarro(u) : t('clCarroRemovido'); };
+  const lemPagTxt = (l) => (l.estado === 'atrasado' ? (l.dias === -1 ? t('lem_atrasadoUm') : t('lem_atrasado', { n: -l.dias }))
+    : l.estado === 'hoje' ? t('lem_hoje') : l.dias === 1 ? t('lem_amanha') : t('lem_emDias', { n: l.dias }));
+  const lemKmTxt = (l) => t('lemKm_' + l.estado, { n: Math.abs(l.dias) });
+
+  // pagamentos semanais e perguntas de km de hoje; `pendentes` = o que precisa de ação agora (atrasado ou hoje)
+  function lembretes() {
+    const hoje = hojeData();
+    const pag = E.clientes.map((c) => ({ c, l: L.lembretePagamento(c, E.recebimentos, hoje) })).filter((x) => x.l)
+      .sort((a, b) => a.l.venc.localeCompare(b.l.venc));
+    const km = E.clientes.map((c) => { const u = E.unidades.find((x) => x.id === c.unidade); return { c, u, l: L.lembreteKm(c, u, hoje) }; })
+      .filter((x) => x.l).sort((a, b) => a.l.dias - b.l.dias);
+    const pendentes = pag.filter((x) => x.l.estado !== 'emDias').length + km.filter((x) => x.l.estado !== 'emDias').length;
+    return { pag, km, pendentes };
+  }
+
+  function blocoLembretes() {
+    const { pag, km, pendentes } = lembretes();
+    const itemPag = ({ c, l }) => `<li class="lem lem-${l.estado}">
+        <div class="lem-txt"><strong>${t('lemPagamento')} · ${esc(c.nome)}</strong>
+          <small>${esc(carroTxt(c.unidade))} · ${esc(t('lemPagTxt', { v: moeda(l.valor), d: dataBR(l.venc) }))}</small>
+          ${l.abertos > 1 ? `<small class="erro">${esc(t('lemSemanasAbertas', { n: l.abertos }))}</small>` : ''}</div>
+        <span class="selo ${SELO_LEM[l.estado]}">${esc(lemPagTxt(l))}</span>
+        <button class="botao verde" data-acao="marcarPago" data-x="${c.id}" data-y="${l.venc}">${t('marcarPago')}</button>
+      </li>`;
+    const itemKm = ({ c, u, l }) => {
+      const erro = UI.erroKmLembrete[u.id];
+      return `<li class="lem lem-${l.estado}">
+        <div class="lem-txt"><strong>${t('lemKm')} · ${esc(c.nome)}</strong>
+          <small>${esc(nomeCarro(u))} · ${esc(t('lemKmTxt', { k: fmtNum(u.km), d: dataBR(l.base) }))}</small></div>
+        <span class="selo ${SELO_LEM[l.estado]}">${esc(lemKmTxt(l))}</span>
+        <span class="lem-km"><input id="km-lem-${u.id}" inputmode="numeric" maxlength="9" autocomplete="off" placeholder="${esc(fmtNum(u.km))}" value="${esc(UI.kmLembrete[u.id] || '')}"
+          data-campo="kmLembrete" data-x="${u.id}" aria-label="${esc(t('lemKmNovo') + ' · ' + u.placa)}" aria-invalid="${!!erro}">
+          <button class="botao linha" data-acao="registrarKm" data-x="${u.id}">${t('registrarKm')}</button></span>
+        ${erro ? `<p class="erro" role="alert">${t(erro)}</p>` : ''}
+      </li>`;
+    };
+    return `<section class="bloco lembretes"><h2 class="rotulo">${pendentes ? esc(t('lembretesN', { n: pendentes })) : t('lembretes')}</h2>
+      <p class="nota aviso-lem">${t('lembretesAviso')}</p>
+      ${pag.length || km.length ? `<ul class="lem-lista">${pag.map(itemPag).join('')}${km.map(itemKm).join('')}</ul>` : `<p class="vazio">${t('semLembretes')}</p>`}
+    </section>`;
+  }
+
+  function cartaoCliente(c) {
+    const hoje = hojeData(), cnh = L.situacaoCnh(c, hoje), pag = L.lembretePagamento(c, E.recebimentos, hoje);
+    const pagos = E.recebimentos.filter((p) => p.cliente === c.id).sort((a, b) => b.venc.localeCompare(a.venc)).slice(0, 4);
+    const a = c.antecedentes;
+    return `<article class="manut-cartao cliente">
+      <div class="cl-cab"><strong>${esc(c.nome)}</strong>
+        <small>${t('cpf')} ${esc(c.cpf)} · ${esc(c.fone)}${c.email ? ` · ${esc(c.email)}` : ''}</small>
+        <small>${esc(c.endereco)}</small></div>
+      <div class="manut-resumo">
+        <span class="selo ${SELO_CNH[cnh.estado]}">${esc(t('cnh_' + cnh.estado, { n: cnh.dias }))}</span>
+        <span class="selo ${a.ok ? 'ok' : 'atencao'}">${esc(a.ok ? t('ant_sim', { d: dataBR(a.data) }) : t('ant_nao'))}</span>
+        ${pag ? `<span class="selo ${SELO_LEM[pag.estado]}">${esc(lemPagTxt(pag))}</span>` : ''}
+      </div>
+      <small>${esc(t('cnhTxt', { c: c.cnhCategoria, d: dataBR(c.cnhValidade) }))} · nº ${esc(c.cnhNumero)}</small>
+      ${a.obs ? `<small>${esc(a.obs)}</small>` : ''}
+      ${c.unidade ? `<small><strong>${esc(t('clCarro', { c: carroTxt(c.unidade) }))}</strong></small>
+        <small>${esc(t('clPeriodo', { e: dataBR(c.entrega), d: c.devolucao ? dataBR(c.devolucao) : t('clSemDevolucao') }))}</small>
+        <small>${esc(t('clValor', { v: moeda(c.valorSemanal), d: t('sem_' + c.diaVenc).toLocaleLowerCase(LOCALE) }))}</small>` : `<small>${t('clSemCarro')}</small>`}
+      ${pagos.length ? `<h3 class="rotulo">${t('clPagamentos')}</h3><ul class="manut-regs">${pagos.map((p) => `<li><span>${esc(t('clPagoEm', { v: dataBR(p.venc), r: moeda(p.valor), p: dataBR(p.data) }))}</span>
+        <button class="fino" data-acao="apagarPagamento" data-x="${p.id}">${t(UI.certezaPagamento === p.id ? 'apagarManutCerteza' : 'apagarManut')}</button></li>`).join('')}</ul>` : ''}
+      <span class="acoes-linha"><button class="fino" data-acao="editarCliente" data-x="${c.id}">${t('editarCarro')}</button>
+        <button class="fino" data-acao="abrirAnexos" data-x="${c.id}">${esc(t('anexosN', { n: anexosDe(c.id).length }))}</button></span>
+    </article>`;
+  }
+
+  function clientesLista() {
+    const lista = [...E.clientes].sort((a, b) => a.nome.localeCompare(b.nome, LOCALE));
+    return `<p class="nota">${t('clientesAjuda')}</p>
+      <div class="frota-topo"><button class="botao verde" data-acao="novoCliente">+ ${t('cadastrarCliente')}</button></div>
+      ${lista.length ? `<div class="manut-lista">${lista.map(cartaoCliente).join('')}</div>` : `<p class="vazio">${t('semClientes')}</p>`}`;
+  }
+
   function painel() {
-    const abas = [['hoje', 'abaHoje'], ['quadro', 'abaQuadro'], ['reservas', 'abaReservasPainel'], ['frota', 'abaFrota'], ['ficha', 'abaFicha'], ['manut', 'abaManut'],
+    const abas = [['hoje', 'abaHoje'], ['quadro', 'abaQuadro'], ['reservas', 'abaReservasPainel'], ['frota', 'abaFrota'], ['clientes', 'abaClientes'], ['ficha', 'abaFicha'], ['manut', 'abaManut'],
       ['margem', 'abaMargem'], ['simulador', 'abaSimulador'], ['precos', 'abaPrecos'], ['config', 'abaConfig']];
-    const corpo = { hoje: painelHoje, quadro, reservas: reservasTabela, frota: frotaLista, ficha: fichaCarro, manut: manutencaoLista,
+    const corpo = { hoje: painelHoje, quadro, reservas: reservasTabela, frota: frotaLista, clientes: clientesLista, ficha: fichaCarro, manut: manutencaoLista,
       margem: margemPainel, simulador: simuladorPainel, precos: precosLista, config: configPainel }[UI.abaPainel]();
     const alertas = trocasDaFrota().filter((x) => x.pior <= 1).length;
-    const rotuloAba = (id, k) => (id === 'manut' && alertas ? t('abaManutAlerta', { n: alertas }) : t(k));
+    const pendentes = lembretes().pendentes;
+    const rotuloAba = (id, k) => (id === 'manut' && alertas ? t('abaManutAlerta', { n: alertas })
+      : id === 'hoje' && pendentes ? t('abaHojeN', { n: pendentes }) : t(k));
     return `<section class="sup-painel" aria-label="${t('vistaLocadora')}">
       <div class="rolo" id="rolo-painel"><div class="painel-miolo gut">
         ${kpis()}
@@ -2900,6 +3460,8 @@ fieldset.grupo .opcao + .opcao { margin-top: 0; }
       ${campoForm('fc', 'ano', 'fc_ano', 'type="text" inputmode="numeric" maxlength="4" autocomplete="off"')}
       ${campoForm('fc', 'placa', 'fc_placa', 'type="text" maxlength="8" autocomplete="off" autocapitalize="characters" spellcheck="false"')}
       ${campoForm('fc', 'tarifa', 'fc_tarifa', 'type="text" inputmode="decimal" maxlength="8" autocomplete="off"')}
+      ${campoForm('fc', 'cor', 'fc_cor', 'type="text" maxlength="20" autocomplete="off"')}
+      ${campoForm('fc', 'renavam', 'fc_renavam', 'type="text" inputmode="numeric" maxlength="13" autocomplete="off" spellcheck="false"', t('fc_renavamAjuda'))}
       ${campoForm('fc', 'km', 'fc_km', 'type="text" inputmode="numeric" maxlength="9" autocomplete="off"')}
       ${campoForm('fc', 'fipe', 'fc_fipe', 'type="text" inputmode="decimal" maxlength="13" autocomplete="off"', t('fc_fipeAjuda', { a: pctTxt(E.config.aliqLocadora) }))}
       <div class="campo-claro"><label for="fc-foto">${t('fc_foto')}</label>
@@ -2956,6 +3518,74 @@ fieldset.grupo .opcao + .opcao { margin-top: 0; }
     </div></div>`;
   }
 
+  function modalCliente() {
+    const c = UI.modal, f = c.f, e = c.erros, atual = c.cliente ? clienteId(c.cliente) : null, hoje = hojeData();
+    const titulo = t(atual ? 'editarClienteTitulo' : 'cadastrarCliente');
+    const erroSel = (k) => (e[k] ? `<p id="fl-${k}-erro" class="erro" role="alert">${t(e[k])}</p>` : '');
+    const carros = [['', t('fl_semCarro')], ...E.unidades.map((u) => [u.id, nomeCarro(u)])];
+    const semana = [['', '–'], ...[1, 2, 3, 4, 5, 6, 0].map((n) => [String(n), t('sem_' + n)])];
+    return `<div class="jan-fundo"><div class="janela" role="dialog" aria-modal="true" aria-label="${esc(titulo)}">
+      <button class="fechar" id="jan-fechar" data-acao="fecharModal" aria-label="${t('fechar')}">×</button>
+      <h2 class="titulo">${esc(titulo)}</h2>
+      <p class="nota">${t('avisoDados')}</p>
+      ${campoForm('fl', 'nome', 'fl_nome', 'type="text" maxlength="80" autocomplete="off"')}
+      ${campoForm('fl', 'cpf', 'fl_cpf', 'type="text" inputmode="numeric" maxlength="14" autocomplete="off"')}
+      ${campoForm('fl', 'cnhNumero', 'fl_cnhNumero', 'type="text" inputmode="numeric" maxlength="14" autocomplete="off"')}
+      <div class="campo-claro"><label for="fl-cnhCategoria">${t('fl_cnhCategoria')}</label>
+        <select id="fl-cnhCategoria" data-campo="fl.cnhCategoria" aria-invalid="${!!e.cnhCategoria}">${opcoes(L.CATEGORIAS_CNH.map((x) => [x, x]), f.cnhCategoria)}</select>${erroSel('cnhCategoria')}</div>
+      ${campoForm('fl', 'cnhValidade', 'fl_cnhValidade', 'type="date"')}
+      ${campoForm('fl', 'endereco', 'fl_endereco', 'type="text" maxlength="160" autocomplete="off"')}
+      ${campoForm('fl', 'fone', 'fl_fone', 'type="tel" maxlength="20" autocomplete="off"')}
+      ${campoForm('fl', 'email', 'fl_email', 'type="email" maxlength="120" autocomplete="off"')}
+      <h3 class="rotulo">${t('fl_antTitulo')}</h3>
+      <label class="marcar claro"><input id="fl-antOk" type="checkbox" data-campo="fl.antOk"${f.antOk ? ' checked' : ''}> ${t('fl_antOk')}</label>
+      <p class="nota">${t('fl_antAjuda')}</p>
+      ${campoForm('fl', 'antData', 'fl_antData', `type="date" max="${hoje}"`)}
+      ${campoForm('fl', 'antObs', 'fl_antObs', 'type="text" maxlength="200" autocomplete="off"')}
+      <h3 class="rotulo">${t('fl_aluguel')}</h3>
+      <div class="campo-claro"><label for="fl-unidade">${t('fl_unidade')}</label>
+        <select id="fl-unidade" data-campo="fl.unidade" aria-invalid="${!!e.unidade}">${opcoes(carros, f.unidade)}</select>${erroSel('unidade')}</div>
+      ${campoForm('fl', 'entrega', 'fl_entrega', 'type="date"')}
+      ${campoForm('fl', 'devolucao', 'fl_devolucao', 'type="date"', t('fl_devolucaoAjuda'))}
+      <div class="campo-claro"><label for="fl-diaVenc">${t('fl_diaVenc')}</label>
+        <select id="fl-diaVenc" data-campo="fl.diaVenc" aria-invalid="${!!e.diaVenc}">${opcoes(semana, f.diaVenc)}</select>${erroSel('diaVenc')}</div>
+      ${campoForm('fl', 'valorSemanal', 'fl_valorSemanal', 'type="text" inputmode="decimal" maxlength="10" autocomplete="off"')}
+      <button class="botao verde largo" id="fl-salvar" data-acao="salvarCliente">${t('fl_salvar')}</button>
+      ${!atual ? '' : c.certezaRemover
+        ? `<div class="certeza" role="alert"><p>${esc(t('removerClienteCerteza', { n: atual.nome }))}</p>
+          <div class="certeza-botoes"><button class="botao pare" data-acao="removerClienteSim">${t('simRemover')}</button><button class="botao linha" data-acao="removerClienteNao">${t('naoManter')}</button></div></div>`
+        : `<button class="botao linha" data-acao="removerClientePedir">${t('removerCliente')}</button>`}
+    </div></div>`;
+  }
+
+  const MB = 1024 * 1024;
+  const tamanhoTxt = (b) => (b >= MB ? `${(b / MB).toLocaleString(LOCALE, { maximumFractionDigits: 1 })} MB` : `${Math.max(1, Math.round(b / 1024))} KB`);
+  const TIPO_CURTO = { 'application/pdf': 'PDF', 'image/jpeg': 'JPG', 'image/png': 'PNG', 'image/webp': 'WEBP' };
+  const donoNome = (dono) => (dono.startsWith('cl') ? (clienteId(dono) || {}).nome || '' : (() => { const u = unidade(dono); return u ? nomeCarro(u) : ''; })());
+  const donoExiste = (dono) => (dono.startsWith('cl') ? !!clienteId(dono) : E.unidades.some((u) => u.id === dono));
+
+  function modalAnexos() {
+    const m = UI.modal, e = m.erros, hoje = hojeData(), maxMb = L.REGRAS.anexoMaxBytes / MB;
+    const lista = anexosDe(m.dono).sort((a, b) => b.data.localeCompare(a.data) || b.id.localeCompare(a.id));
+    const titulo = t('anexosDe', { n: donoNome(m.dono) });
+    return `<div class="jan-fundo"><div class="janela" role="dialog" aria-modal="true" aria-label="${esc(titulo)}">
+      <button class="fechar" id="jan-fechar" data-acao="fecharModal" aria-label="${t('fechar')}">×</button>
+      <h2 class="titulo">${esc(titulo)}</h2>
+      <p class="nota">${esc(t('anexosAjuda', { n: maxMb }))}</p>
+      ${lista.length ? `<ul class="manut-regs anexos">${lista.map((a) => `<li><span><strong>${esc(a.nome)}</strong> · ${esc(dataBR(a.data))} · ${TIPO_CURTO[a.tipo]} · ${esc(tamanhoTxt(a.tamanho))}</span>
+        <span class="acoes-linha"><button class="fino" data-acao="abrirAnexo" data-x="${a.id}">${t('abrirAnexo')}</button><button class="fino" data-acao="baixarAnexo" data-x="${a.id}">${t('baixarAnexo')}</button>
+        <button class="fino" data-acao="apagarAnexo" data-x="${a.id}">${t(UI.certezaAnexo === a.id ? 'apagarManutCerteza' : 'apagarManut')}</button></span></li>`).join('')}</ul>`
+        : `<p class="vazio">${t('semAnexos')}</p>`}
+      <div class="campo-claro"><label for="fa-arquivo">${t('fa_arquivo')}</label>
+        <input id="fa-arquivo" type="file" accept="application/pdf,image/jpeg,image/png,image/webp" data-campo="fa.arquivo" aria-invalid="${!!e.arquivo}">
+        ${m.arquivo ? `<p class="nota">${esc(m.arquivo.name)} · ${esc(tamanhoTxt(m.arquivo.size))}</p>` : ''}
+        ${e.arquivo ? `<p id="fa-arquivo-erro" class="erro" role="alert">${esc(t(e.arquivo, { n: maxMb }))}</p>` : ''}</div>
+      ${campoForm('fa', 'nome', 'fa_nome', 'type="text" maxlength="60" autocomplete="off"', t('fa_nomeAjuda'))}
+      ${campoForm('fa', 'data', 'fa_data', `type="date" max="${hoje}"`)}
+      <button class="botao verde largo" id="fa-salvar" data-acao="salvarAnexo"${m.gravando ? ' disabled' : ''}>${t('fa_salvar')}</button>
+    </div></div>`;
+  }
+
   // no IPVA, preenche o valor calculado; se o dono digitou outro valor, respeita
   function ipvaAutomatico(c) {
     const u = unidade(c.f.unidade);
@@ -3009,7 +3639,7 @@ fieldset.grupo .opcao + .opcao { margin-top: 0; }
     const m = UI.modal;
     const antes = alvo.querySelector('.janela');
     const y = antes ? antes.scrollTop : 0;
-    const janelas = { vistoria: modalVistoria, checkin: modalCheckin, carro: modalCarro, manut: modalManut, custo: modalCusto };
+    const janelas = { vistoria: modalVistoria, checkin: modalCheckin, carro: modalCarro, manut: modalManut, custo: modalCusto, cliente: modalCliente, anexos: modalAnexos };
     alvo.innerHTML = !m ? '' : janelas[m.tipo] ? janelas[m.tipo]() : modalReserva(reserva(m.id));
     const depois = alvo.querySelector('.janela');
     if (depois) depois.scrollTop = y;
@@ -3181,6 +3811,7 @@ fieldset.grupo .opcao + .opcao { margin-top: 0; }
     const { erros, carro } = L.validarCarro(f, {
       categorias: D.CATEGORIAS, anoAtual: anoAtual(),
       placasEmUso: E.unidades.filter((u) => u !== atual).map((u) => L.normalizarPlaca(u.placa)),
+      renavamsEmUso: E.unidades.filter((u) => u !== atual && u.renavam).map((u) => u.renavam),
     });
     const nome = carro.modelo.toLocaleLowerCase(LOCALE);
     let m = E.modelos.find((x) => x.nome.toLocaleLowerCase(LOCALE) === nome);
@@ -3197,10 +3828,11 @@ fieldset.grupo .opcao + .opcao { margin-top: 0; }
     m.cat = carro.categoria; // categoria e diária são do modelo (o cliente reserva o modelo, "ou similar")
     E.tarifas[m.id] = carro.tarifa;
     if (atual) {
-      Object.assign(atual, { modelo: m.id, ano: carro.ano, placa: carro.placa, km: carro.km, fipe: carro.fipe, foto: f.foto || null });
+      Object.assign(atual, { modelo: m.id, ano: carro.ano, placa: carro.placa, km: carro.km, fipe: carro.fipe, foto: f.foto || null, cor: carro.cor, renavam: carro.renavam });
     } else {
       E.unidades.push({ id: proximoId('u', [...E.unidades, ...E.removidos]), modelo: m.id, placa: carro.placa, local: D.LOCAIS[0].id,
-        km: carro.km, situacao: 'ok', ano: carro.ano, oleoKm: L.REGRAS.oleoPadraoKm, filtroKm: L.REGRAS.filtroPadraoKm, foto: f.foto || null, fipe: carro.fipe });
+        km: carro.km, situacao: 'ok', ano: carro.ano, oleoKm: L.REGRAS.oleoPadraoKm, filtroKm: L.REGRAS.filtroPadraoKm, foto: f.foto || null, fipe: carro.fipe,
+        cor: carro.cor, renavam: carro.renavam, kmData: null });
     }
     const ok = salvar();
     log(atual ? 'carro editado' : 'carro cadastrado', carro.placa);
@@ -3213,12 +3845,15 @@ fieldset.grupo .opcao + .opcao { margin-top: 0; }
     const u = E.unidades.find((x) => x.id === UI.modal.unidade);
     if (!u) { fecharModal(); desenhar(); return; }
     if (temReservaAtiva(u)) { UI.modal.certezaRemover = false; avisar(t('erroRemoverComReserva', { p: u.placa })); desenharModal(); return; }
+    if (E.clientes.some((c) => c.unidade === u.id)) { UI.modal.certezaRemover = false; avisar(t('erroCarroComCliente', { p: u.placa })); desenharModal(); return; }
     E.unidades = E.unidades.filter((x) => x !== u);
-    // com reserva antiga, o carro vai pro arquivo pra o histórico continuar abrindo; sem nenhuma, sai de vez
-    if (E.reservas.some((r) => r.unidade === u.id)) E.removidos.push(u);
+    // com reserva ou aluguel semanal recebido, o carro vai pro arquivo pra o histórico continuar abrindo
+    // (e a id não é reaproveitada por outro carro); sem nada, sai de vez
+    if (E.reservas.some((r) => r.unidade === u.id) || E.recebimentos.some((p) => p.unidade === u.id)) E.removidos.push(u);
     else {
       E.manutencoes = E.manutencoes.filter((r) => r.unidade !== u.id);
       E.custos = E.custos.filter((c) => c.unidade !== u.id);
+      apagarAnexosDe(u.id);
     }
     salvar();
     log('carro removido da frota', u.placa);
@@ -3288,6 +3923,154 @@ fieldset.grupo .opcao + .opcao { margin-top: 0; }
     desenhar();
   }
 
+  /* ---------- clientes, anexos e lembretes ---------- */
+  function salvarCliente() {
+    const c = UI.modal, atual = c.cliente ? clienteId(c.cliente) : null;
+    if (c.cliente && !atual) { log('edição cancelada: o cliente não existe mais', c.cliente); fecharModal(); desenhar(); return; }
+    const { erros, cliente } = L.validarCliente(c.f, { unidades: E.unidades.map((u) => u.id), hoje: hojeData() });
+    if (!Object.keys(erros).length) {
+      const conflito = L.conflitoCarroCliente(E, cliente, atual && atual.id);
+      if (conflito) erros.unidade = conflito;
+    }
+    c.erros = erros;
+    if (Object.keys(erros).length) { log('cadastro de cliente com erro', Object.keys(erros).join(', ')); desenharModal(); focarErro('fl', erros); return; }
+    if (atual) Object.assign(atual, cliente);
+    // id nunca reaproveitada: pagamentos de cliente removido continuam guardados com a id antiga
+    else E.clientes.push({ id: proximoId('cl', [...E.clientes, ...E.recebimentos.map((p) => ({ id: p.cliente }))]), ...cliente });
+    const ok = salvar();
+    log(atual ? 'cliente editado' : 'cliente cadastrado', cliente.unidade || 'sem carro');
+    avisar(ok ? t('clienteSalvo', { n: cliente.nome }) : t('erroSalvarAparelho'));
+    fecharModal();
+    desenhar();
+  }
+
+  function apagarAnexosDe(dono) {
+    for (const a of anexosDe(dono)) Anexos.apagar(a.id).catch((falha) => console.warn('[volante] não consegui apagar o arquivo do anexo', a.id, falha));
+    E.anexos = E.anexos.filter((a) => a.dono !== dono);
+  }
+
+  function removerCliente() {
+    const c = clienteId(UI.modal.cliente);
+    if (!c) { fecharModal(); desenhar(); return; }
+    E.clientes = E.clientes.filter((x) => x !== c);
+    apagarAnexosDe(c.id);
+    salvar();
+    log('cliente removido', c.id);
+    avisar(t('clienteRemovido', { n: c.nome }));
+    fecharModal();
+    desenhar();
+  }
+
+  // confere tamanho e tipo (pelos primeiros bytes) assim que o arquivo é escolhido
+  async function escolherAnexo(arquivo) {
+    const m = UI.modal;
+    if (!m || m.tipo !== 'anexos') return;
+    m.arquivo = null; m.tipoArq = null; delete m.erros.arquivo;
+    if (!arquivo) { desenharModal(); return; }
+    if (arquivo.size > L.REGRAS.anexoMaxBytes) { log('anexo grande demais', tamanhoTxt(arquivo.size)); m.erros.arquivo = 'erroAnexoGrande'; desenharModal(); return; }
+    let tipo = null;
+    try { tipo = L.tipoPorAssinatura(new Uint8Array(await arquivo.slice(0, 12).arrayBuffer())); }
+    catch (falha) { console.warn('[volante] não consegui ler o começo do arquivo escolhido:', falha); }
+    if (UI.modal !== m) return; // fechou a janela no meio
+    if (!tipo) { log('anexo recusado: não é PDF nem imagem', arquivo.type || 'tipo desconhecido'); m.erros.arquivo = 'erroAnexoTipo'; desenharModal(); return; }
+    m.arquivo = arquivo; m.tipoArq = tipo;
+    if (!m.f.nome.trim()) m.f.nome = arquivo.name.replace(/\.[^.]*$/, '').replace(/[\\/<>]/g, ' ').slice(0, 60);
+    desenharModal();
+  }
+
+  async function salvarAnexo() {
+    const m = UI.modal;
+    if (!m || m.tipo !== 'anexos' || m.gravando) return;
+    if (!donoExiste(m.dono)) { log('anexo não guardado: o dono não existe mais', m.dono); fecharModal(); desenhar(); return; }
+    const { erros, anexo } = L.validarAnexo(m.f, hojeData());
+    if (!m.arquivo) erros.arquivo = 'erroAnexoFalta';
+    m.erros = erros;
+    if (Object.keys(erros).length) { log('anexo com erro', Object.keys(erros).join(', ')); desenharModal(); focarErro('fa', erros); return; }
+    const id = proximoId('ax', E.anexos);
+    m.gravando = true;
+    desenharModal();
+    log('guardando anexo no aparelho', `${id} ${tamanhoTxt(m.arquivo.size)}`);
+    try {
+      await Anexos.guardar(id, new Blob([m.arquivo], { type: m.tipoArq }));
+    } catch (falha) {
+      console.error('[volante] falhou ao guardar o anexo no IndexedDB:', falha);
+      m.gravando = false;
+      if (UI.modal === m) { m.erros = { arquivo: 'erroAnexoAparelho' }; desenharModal(); }
+      return;
+    }
+    E.anexos.push({ id, dono: m.dono, nome: anexo.nome, tipo: m.tipoArq, tamanho: m.arquivo.size, data: anexo.data });
+    if (!salvar()) {
+      E.anexos = E.anexos.filter((a) => a.id !== id);
+      Anexos.apagar(id).catch(() => {});
+      avisar(t('erroSalvarAparelho'));
+    } else avisar(t('anexoSalvo', { n: anexo.nome }));
+    m.gravando = false; m.arquivo = null; m.tipoArq = null; m.f = { nome: '', data: hojeData() };
+    desenhar();
+  }
+
+  function nomeDoArquivo(a) {
+    const ext = { 'application/pdf': 'pdf', 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' }[a.tipo];
+    return `${a.nome.replace(/[^\p{L}\p{N} _-]/gu, '').trim() || 'anexo'}.${ext}`;
+  }
+
+  // abre numa aba nova ou baixa; o arquivo vem do próprio aparelho, com o tipo conferido no envio
+  async function abrirAnexo(id, baixar) {
+    const a = E.anexos.find((x) => x.id === id);
+    if (!a) return;
+    try {
+      const blob = await Anexos.ler(id);
+      if (!blob) { log('anexo sem arquivo no aparelho', id); avisar(t('erroAnexoSumiu')); return; }
+      const url = URL.createObjectURL(new Blob([blob], { type: a.tipo }));
+      const link = document.createElement('a');
+      link.href = url; link.rel = 'noopener';
+      if (baixar) link.download = nomeDoArquivo(a); else link.target = '_blank';
+      document.body.appendChild(link); link.click(); link.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+      log(baixar ? 'anexo baixado' : 'anexo aberto', id);
+    } catch (falha) {
+      console.error('[volante] não consegui abrir o anexo', id, falha);
+      avisar(t('erroAnexoAparelho'));
+    }
+  }
+
+  // registra a semana como paga: vira receita do carro no mês de hoje (entra na margem)
+  function marcarPago(clId, venc) {
+    const c = clienteId(clId), hoje = hojeData();
+    const l = c && L.lembretePagamento(c, E.recebimentos, hoje);
+    if (!l || l.venc !== venc) { log('pagamento ignorado: o vencimento mudou (clique repetido?)', `${clId} ${venc}`); desenhar(); return; }
+    E.recebimentos.push({ id: proximoId('pg', E.recebimentos), cliente: c.id, unidade: c.unidade, venc, data: hoje, valor: c.valorSemanal });
+    const ok = salvar();
+    log('pagamento semanal registrado', `${c.id} ${venc} ${c.valorSemanal}`);
+    const u = unidade(c.unidade);
+    avisar(ok ? t('pagoOk', { n: c.nome, v: moeda(c.valorSemanal), p: u ? u.placa : '' }) : t('erroSalvarAparelho'));
+    desenhar();
+  }
+
+  // km que o cliente informou: atualiza o carro e, com ele, o alerta de troca de óleo/filtro
+  function registrarKm(uid) {
+    const u = E.unidades.find((x) => x.id === uid);
+    if (!u) return;
+    const { erro, km } = L.validarKmInformado(UI.kmLembrete[uid], u.km);
+    if (erro) {
+      UI.erroKmLembrete[uid] = erro;
+      log('km informado com erro', `${u.placa} ${erro}`);
+      desenhar();
+      const el = document.getElementById('km-lem-' + uid);
+      if (el) el.focus();
+      return;
+    }
+    delete UI.erroKmLembrete[uid]; delete UI.kmLembrete[uid];
+    u.km = km; u.kmData = hojeData();
+    const ok = salvar();
+    log('km mensal registrado', `${u.placa} ${km}`);
+    const hoje = hojeData();
+    const alerta = ['oleo', 'filtro'].map((tp) => [tp, L.situacaoTroca(u, E.manutencoes, tp, hoje)]).find(([, s]) => s.estado === 'passou' || s.estado === 'perto');
+    avisar(!ok ? t('erroSalvarAparelho') : alerta
+      ? t('kmRegistradoTroca', { p: u.placa, k: fmtNum(km), t: t('curto_' + alerta[0]).toLocaleLowerCase(LOCALE), s: t('tr_' + alerta[1].estado) })
+      : t('kmRegistrado', { p: u.placa, k: fmtNum(km) }));
+    desenhar();
+  }
+
   // apagar com dois toques: o 1º pede certeza, que some sozinha em 4s
   function pedirCerteza(campo, id) {
     if (UI[campo] === id) return true;
@@ -3308,12 +4091,14 @@ fieldset.grupo .opcao + .opcao { margin-top: 0; }
         return;
       }
       try { localStorage.removeItem(CHAVE); } catch (erro) { console.warn('[volante] não consegui limpar o salvo:', erro); }
+      Anexos.limpar().catch((erro) => console.warn('[volante] não consegui limpar os anexos do aparelho:', erro));
       E = D.semear(L, hojeTxt().slice(0, 10));
       UI.certezaReinicio = false; UI.modal = null; UI.tela = 'busca'; UI.abaCliente = 'reservar'; UI.rascunho = null; UI.editandoId = null;
       UI.categoria = 'todos'; UI.cambio = 'todos'; UI.filtroReservas = 'ativas'; UI.lojaPainel = 'todas'; UI.erroBusca = null; UI.certezaCancelar = null; UI.destaque = null;
       UI.erroIntervalo = {}; UI.certezaManut = null; UI.erroTarifa = {};
       UI.fichaId = null; UI.mes = mesAtual(); UI.sim = simPadrao(); UI.novoFixo = { nome: '', valor: '' }; UI.erroNovoFixo = {};
       UI.erroFixo = {}; UI.erroConfig = {}; UI.certezaCusto = null; UI.certezaFixo = null;
+      UI.kmLembrete = {}; UI.erroKmLembrete = {}; UI.certezaPagamento = null; UI.certezaAnexo = null;
       UI.busca = buscaPadrao();
       log('demonstração reiniciada');
       avisar(t('reiniciado'));
@@ -3456,20 +4241,21 @@ fieldset.grupo .opcao + .opcao { margin-top: 0; }
     },
     novoCarro() {
       abrirModal({ tipo: 'carro', unidade: null, erros: {}, certezaRemover: false,
-        f: { modelo: '', categoria: D.CATEGORIAS[0], ano: String(anoAtual()), placa: '', tarifa: '', km: '0', fipe: '', foto: null } });
+        f: { modelo: '', categoria: D.CATEGORIAS[0], ano: String(anoAtual()), placa: '', tarifa: '', km: '0', fipe: '', cor: '', renavam: '', foto: null } });
     },
     editarCarro(x) {
       const u = unidade(x);
       if (!u) return;
       const m = modelo(u.modelo);
       abrirModal({ tipo: 'carro', unidade: u.id, erros: {}, certezaRemover: false,
-        f: { modelo: m.nome, categoria: m.cat, ano: String(u.ano), placa: u.placa, tarifa: reaisTxt(E.tarifas[m.id]), km: String(u.km), fipe: u.fipe ? reaisTxt(u.fipe) : '', foto: u.foto || null } });
+        f: { modelo: m.nome, categoria: m.cat, ano: String(u.ano), placa: u.placa, tarifa: reaisTxt(E.tarifas[m.id]), km: String(u.km), fipe: u.fipe ? reaisTxt(u.fipe) : '', cor: u.cor || '', renavam: u.renavam || '', foto: u.foto || null } });
     },
     salvarCarro() { salvarCarro(); },
     fcSemFoto() { UI.modal.f.foto = null; desenharModal(); const b = document.getElementById('fc-foto'); if (b) b.focus({ preventScroll: true }); },
     removerCarroPedir() {
       const u = unidade(UI.modal.unidade);
       if (u && temReservaAtiva(u)) { avisar(t('erroRemoverComReserva', { p: u.placa })); return; }
+      if (u && E.clientes.some((c) => c.unidade === u.id)) { avisar(t('erroCarroComCliente', { p: u.placa })); return; }
       UI.modal.certezaRemover = true;
       desenharModal();
       const b = document.querySelector('.janela [data-acao=removerCarroNao]');
@@ -3548,6 +4334,56 @@ fieldset.grupo .opcao + .opcao { margin-top: 0; }
     },
     simN(x) { UI.sim.n = Number(x); delete UI.sim.erros.n; desenhar(); },
     simFrota(x) { if (['custo', 'diaria', 'fipe'].includes(x)) { UI.sim[x] = null; delete UI.sim.erros[x]; desenhar(); } },
+    novoCliente() {
+      abrirModal({ tipo: 'cliente', cliente: null, erros: {}, certezaRemover: false,
+        f: { nome: '', cpf: '', cnhNumero: '', cnhCategoria: 'B', cnhValidade: '', endereco: '', fone: '', email: '', antOk: false, antData: '', antObs: '',
+          unidade: '', entrega: hojeData(), devolucao: '', diaVenc: '', valorSemanal: '' } });
+    },
+    editarCliente(x) {
+      const c = clienteId(x);
+      if (!c) return;
+      abrirModal({ tipo: 'cliente', cliente: c.id, erros: {}, certezaRemover: false,
+        f: { nome: c.nome, cpf: c.cpf, cnhNumero: c.cnhNumero, cnhCategoria: c.cnhCategoria, cnhValidade: c.cnhValidade, endereco: c.endereco, fone: c.fone,
+          email: c.email, antOk: c.antecedentes.ok, antData: c.antecedentes.data, antObs: c.antecedentes.obs, unidade: c.unidade,
+          entrega: c.entrega || hojeData(), devolucao: c.devolucao, diaVenc: c.diaVenc === null ? '' : String(c.diaVenc), valorSemanal: c.valorSemanal ? reaisTxt(c.valorSemanal) : '' } });
+    },
+    salvarCliente() { salvarCliente(); },
+    removerClientePedir() {
+      UI.modal.certezaRemover = true;
+      desenharModal();
+      const b = document.querySelector('.janela [data-acao=removerClienteNao]');
+      if (b) { b.focus({ preventScroll: true }); b.scrollIntoView({ block: 'nearest' }); }
+    },
+    removerClienteNao() { UI.modal.certezaRemover = false; desenharModal(); },
+    removerClienteSim() { removerCliente(); },
+    abrirAnexos(x) {
+      if (!donoExiste(x)) return;
+      abrirModal({ tipo: 'anexos', dono: x, erros: {}, arquivo: null, tipoArq: null, gravando: false, f: { nome: '', data: hojeData() } });
+    },
+    salvarAnexo() { salvarAnexo(); },
+    abrirAnexo(x) { abrirAnexo(x, false); },
+    baixarAnexo(x) { abrirAnexo(x, true); },
+    apagarAnexo(x) {
+      if (!pedirCerteza('certezaAnexo', x)) return;
+      Anexos.apagar(x).catch((falha) => console.warn('[volante] não consegui apagar o arquivo do anexo', x, falha));
+      E.anexos = E.anexos.filter((a) => a.id !== x);
+      UI.certezaAnexo = null;
+      salvar();
+      log('anexo apagado', x);
+      avisar(t('anexoApagado'));
+      desenhar();
+    },
+    marcarPago(x, y) { marcarPago(x, y); },
+    registrarKm(x) { registrarKm(x); },
+    apagarPagamento(x) {
+      if (!pedirCerteza('certezaPagamento', x)) return;
+      E.recebimentos = E.recebimentos.filter((p) => p.id !== x);
+      UI.certezaPagamento = null;
+      salvar();
+      log('pagamento semanal apagado', x);
+      avisar(t('pagamentoApagado'));
+      desenhar();
+    },
   };
 
   function erroDaBusca() {
@@ -3642,15 +4478,17 @@ fieldset.grupo .opcao + .opcao { margin-top: 0; }
     if (c.startsWith('motorista.')) UI.rascunho.motorista[c.split('.')[1]] = e.target.value;
     if (c === 'vist.km') UI.modal.km = e.target.value;
     if (c === 'ck.texto') UI.modal.texto = e.target.value;
-    if (/^f[cmu]\.\w+$/.test(c) && c !== 'fc.foto' && UI.modal && UI.modal.f) UI.modal.f[c.slice(3)] = e.target.value;
+    if (/^f[cmula]\.\w+$/.test(c) && c !== 'fc.foto' && c !== 'fa.arquivo' && UI.modal && UI.modal.f) UI.modal.f[c.slice(3)] = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
     if (c === 'fu.valor' && UI.modal) UI.modal.auto = false; // o dono digitou: não troca mais o valor sozinho
     if (c.startsWith('novoFixo.')) UI.novoFixo[c.slice(9)] = e.target.value;
+    if (c === 'kmLembrete') UI.kmLembrete[e.target.dataset.x] = e.target.value;
   });
 
   document.addEventListener('change', (e) => {
     const el = e.target, c = el.dataset.campo;
     if (!c) return;
     if (c === 'fc.foto') { lerFoto(el.files && el.files[0]); return; }
+    if (c === 'fa.arquivo') { escolherAnexo(el.files && el.files[0]); return; }
     if (c === 'fu.tipo' || c === 'fu.unidade') {
       const m = UI.modal;
       if (!m || m.tipo !== 'custo') return;
@@ -3661,7 +4499,7 @@ fieldset.grupo .opcao + .opcao { margin-top: 0; }
       if (de) de.focus({ preventScroll: true });
       return;
     }
-    if (/^f[cmu]\.\w+$/.test(c)) { if (UI.modal && UI.modal.f) UI.modal.f[c.slice(3)] = el.value; return; }
+    if (/^f[cmula]\.\w+$/.test(c)) { if (UI.modal && UI.modal.f) UI.modal.f[c.slice(3)] = el.type === 'checkbox' ? el.checked : el.value; return; }
     if (c.startsWith('novoFixo.')) { UI.novoFixo[c.slice(9)] = el.value; return; }
     if (c === 'ficha') { if (E.unidades.some((u) => u.id === el.value)) { UI.fichaId = el.value; desenhar(); } return; }
     if (c === 'fixoNome' || c === 'fixoValor') {
@@ -3767,6 +4605,10 @@ fieldset.grupo .opcao + .opcao { margin-top: 0; }
       // janela do dono continua aberta, a não ser que o carro tenha saído da frota na outra aba
       const id = m.tipo === 'custo' ? m.f.unidade : m.unidade;
       if (id && !E.unidades.some((u) => u.id === id)) UI.modal = null;
+    } else if (m && m.tipo === 'cliente') {
+      if (m.cliente && !clienteId(m.cliente)) UI.modal = null;
+    } else if (m && m.tipo === 'anexos') {
+      if (!donoExiste(m.dono)) UI.modal = null;
     } else if (m) {
       const r = reserva(m.id);
       const esperado = m.tipo === 'vistoria' ? (m.fase === 'ret' ? 'reservada' : 'retirada') : m.tipo === 'checkin' ? 'reservada' : null;
