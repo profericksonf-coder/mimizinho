@@ -1231,6 +1231,10 @@ fieldset.grupo .opcao + .opcao { margin-top: 0; }
     reiniciar: 'Reiniciar demonstração',
     reiniciarCerteza: 'Apagar e reiniciar?',
     reiniciado: 'Demonstração reiniciada',
+    salvarCopia: 'Salvar cópia',
+    salvandoCopia: 'Salvando…',
+    copiaSalva: 'Cópia salva. Guarde esse arquivo: é com ele que seus dados vão para a próxima versão.',
+    erroCopia: 'Não consegui salvar a cópia. Tente de novo; seus dados continuam no aparelho.',
     abaReservar: 'Reservar',
     abaReservas: 'Minhas reservas',
     voltar: 'Voltar',
@@ -2424,6 +2428,7 @@ fieldset.grupo .opcao + .opcao { margin-top: 0; }
         ${vistas.map(([id, k]) => `<button class="vista${id === 'ambos' ? ' so-largo' : ''}" data-acao="modo" data-x="${id}" aria-pressed="${UI.modo === id}">${t(k)}</button>`).join('')}
       </div>
       <div class="topo-dir">
+        <button class="fino copia" data-acao="salvarCopia"${UI.salvandoCopia ? ' disabled' : ''}>${t(UI.salvandoCopia ? 'salvandoCopia' : 'salvarCopia')}</button>
         <button class="fino reinicio${UI.certezaReinicio ? ' certo' : ''}" data-acao="reiniciar" aria-label="${t(UI.certezaReinicio ? 'reiniciarCerteza' : 'reiniciar')}"><span class="reinicio-txt">${t(UI.certezaReinicio ? 'reiniciarCerteza' : 'reiniciar')}</span><span class="reinicio-ico" aria-hidden="true">↺</span></button>
       </div>
     </header>
@@ -4081,7 +4086,52 @@ fieldset.grupo .opcao + .opcao { margin-top: 0; }
   }
 
   /* ---------- ações dos botões ---------- */
+  /* 17/11/2026: cópia de tudo o que está no aparelho (dados + arquivos anexados) num arquivo .json.
+     O dono baixa e guarda; a versão com banco de dados vai ler esse arquivo de volta. Nada sai do aparelho aqui. */
+  const blobParaTexto = (blob) => new Promise((ok, falha) => {
+    const leitor = new FileReader();
+    leitor.onload = () => ok(leitor.result);
+    leitor.onerror = () => falha(leitor.error);
+    leitor.readAsDataURL(blob);
+  });
+  async function montarCopia() {
+    const arquivos = {};
+    let faltando = 0;
+    for (const a of E.anexos) {
+      try {
+        const blob = await Anexos.ler(a.id);
+        if (blob) arquivos[a.id] = await blobParaTexto(blob);
+        else { faltando++; console.warn('[volante] anexo sem conteúdo no aparelho, vai só a ficha:', a.id); }
+      } catch (erro) { faltando++; console.warn('[volante] não consegui ler o anexo para a cópia:', a.id, erro); }
+    }
+    return { copia: { app: 'mimizinho', formato: 1, chave: CHAVE, feitaEm: new Date().toISOString(), anexosSemArquivo: faltando }, dados: E, arquivos };
+  }
+  function baixar(nome, texto) {
+    const url = URL.createObjectURL(new Blob([texto], { type: 'application/json' }));
+    const a = document.createElement('a');
+    a.href = url; a.download = nome; a.rel = 'noopener';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+  }
+
   const ACOES = {
+    async salvarCopia() {
+      if (UI.salvandoCopia) return;
+      UI.salvandoCopia = true; desenhar();
+      log('montando a cópia dos dados do aparelho', `${E.unidades.length} carros, ${E.clientes.length} clientes, ${E.anexos.length} anexos`);
+      try {
+        const copia = await montarCopia();
+        const dia = hojeTxt().slice(0, 10);
+        baixar(`mimizinho-copia-${dia}.json`, JSON.stringify(copia));
+        log('cópia baixada', `${Object.keys(copia.arquivos).length} arquivos anexados incluídos`);
+        avisar(t('copiaSalva'));
+      } catch (erro) {
+        console.error('[volante] falhou ao montar ou baixar a cópia:', erro);
+        avisar(t('erroCopia'));
+      } finally {
+        UI.salvandoCopia = false; desenhar();
+      }
+    },
     modo(x) { UI.modo = x; desenhar(); },
     reiniciar() {
       if (!UI.certezaReinicio) {
