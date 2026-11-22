@@ -1145,6 +1145,9 @@ fieldset.grupo .opcao + .opcao { margin-top: 0; }
     // 21/11/2026: o Adilson usa só a parte da locadora, sem reserva pelo app. Pra religar no futuro, é só trocar pra true:
     ladoCliente: false, // tela em que o cliente final reserva o carro (e os botões Cliente / Locadora / Lado a lado)
     reservas: false,    // o que depende de reserva no painel: retiradas e devoluções, aba Reservas, Quadro da frota, "Reservado neste mês"
+    // 22/11/2026: os dados dele já estão no banco, então saíram os botões "Salvar cópia" e "Anexar cópia salva".
+    // Pra religar (ex.: trazer dados de outro aparelho), trocar pra true. Cuidado: "Anexar" TROCA o banco inteiro.
+    copias: false,
   };
 
   // a locadora tem um endereço só: retirada e devolução sempre aqui. Sem `horario` = sem restrição de hora
@@ -1250,6 +1253,7 @@ fieldset.grupo .opcao + .opcao { margin-top: 0; }
     conta: 'Conta',
     contaDe: 'Entrou como {e}',
     faixaBancoVazio: 'O banco ainda está vazio: o que aparece aqui está só neste aparelho e NÃO vai pro banco. Toque em "Salvar cópia" e depois em "Anexar cópia salva".',
+    faixaBancoVazioSemCopia: 'O banco ainda está vazio: o que aparece aqui está só neste aparelho e NÃO vai pro banco. Fale com o Erickson antes de lançar dados.',
     copiaFeitaEm: 'feita em {d}',
     copiaTem: 'A cópia tem {c} carros, {k} clientes e {a} anexos ({f} com arquivo).',
     copiaPrimeira: 'Tudo isso vai para o banco. Depois, qualquer aparelho que entrar com login vê os mesmos dados.',
@@ -2775,13 +2779,13 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
         ${vistas.map(([id, k]) => `<button class="vista${id === 'ambos' ? ' so-largo' : ''}" data-acao="modo" data-x="${id}" aria-pressed="${UI.modo === id}">${t(k)}</button>`).join('')}
       </div>` : ''}
       <div class="topo-dir">
-        <button class="fino copia" data-acao="salvarCopia"${UI.salvandoCopia ? ' disabled' : ''}>${t(UI.salvandoCopia ? 'salvandoCopia' : 'salvarCopia')}</button>
+        ${D.CONFIG.copias ? `<button class="fino copia" data-acao="salvarCopia"${UI.salvandoCopia ? ' disabled' : ''}>${t(UI.salvandoCopia ? 'salvandoCopia' : 'salvarCopia')}</button>
         <button class="fino copia" data-acao="anexarCopia"${UI.modal && UI.modal.tipo === 'copia' ? ' disabled' : ''}>${t('anexarCopia')}</button>
-        <input type="file" id="arquivo-copia" accept=".json,application/json" data-campo="arquivoCopia" hidden>
+        <input type="file" id="arquivo-copia" accept=".json,application/json" data-campo="arquivoCopia" hidden>` : ''}
         <button class="fino conta" data-acao="abrirConta" aria-label="${esc(t('contaDe', { e: NUVEM.email }))}">${t('conta')}</button>
       </div>
     </header>
-    ${NUVEM.modo === 'bancoVazio' ? `<p class="faixa faixa-alerta gut" role="status">${t('faixaBancoVazio')}</p>` : ''}`;
+    ${NUVEM.modo === 'bancoVazio' ? `<p class="faixa faixa-alerta gut" role="status">${t(D.CONFIG.copias ? 'faixaBancoVazio' : 'faixaBancoVazioSemCopia')}</p>` : ''}`;
   }
 
   /* ---------- CLIENTE ---------- */
@@ -4712,7 +4716,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
 
   const ACOES = {
     async salvarCopia() {
-      if (UI.salvandoCopia) return;
+      if (!D.CONFIG.copias || UI.salvandoCopia) return;
       UI.salvandoCopia = true; desenhar();
       log('montando a cópia dos dados do aparelho', `${E.unidades.length} carros, ${E.clientes.length} clientes, ${E.anexos.length} anexos`);
       try {
@@ -4731,7 +4735,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     modo(x) { UI.modo = D.CONFIG.ladoCliente ? x : 'locadora'; desenhar(); },
     // "Anexar cópia salva": escolhe o .json que o "Salvar cópia" baixou
     anexarCopia() {
-      if (NUVEM.modo !== 'banco' && NUVEM.modo !== 'bancoVazio') return;
+      if (!D.CONFIG.copias || (NUVEM.modo !== 'banco' && NUVEM.modo !== 'bancoVazio')) return;
       const el = document.getElementById('arquivo-copia');
       el.value = '';
       el.click();
