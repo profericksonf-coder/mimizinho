@@ -5,44 +5,47 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Mimizinho Aluguel de Carros</title>
 <meta name="claude:viewport-fit-sides" content="cover">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Overpass+Mono:wght@500;700&family=Overpass:wght@600;800;900&family=Public+Sans:wght@400;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@600&family=Instrument+Sans:wght@400;500;600&display=swap">
 <style>
-/* Conceito: busca grande no topo (cartão azul-petróleo com aba que mostra quantas diárias), cards de carro com desenho
-   grande, e a reserva confirmada vira um chaveiro de locadora. Paleta própria: azul-petróleo + âmbar. */
+/* Conceito (v5, 22/11/2026): visual limpo de ferramenta de trabalho. Base neutra, um azul só (o da placa Mercosul),
+   listas com linha fina, situação com pontinho e a placa Mercosul como único detalhe de personalidade.
+   Dois temas: dia e noite (botão no topo; sem escolha, segue o celular). */
 :root {
-  --placa: #0F4C5C;
-  --placa-funda: #0A3742;
-  --refletivo: #F7FAF6;
-  --ambar: #F5B700;
-  --sobre-ambar: #1C2320;
-  --pare: #B92E1C;
+  --placa: #24448F;
+  --placa-funda: #1B3470;
+  --refletivo: #FFFFFF;
+  --ambar: #C98A12;
+  --sobre-ambar: #15181C;
+  --pare: #C0392B;
   --sobre-pare: #FFFFFF;
-  --chao: #EDF0F2;
+  --chao: #F5F6F8;
   --sup: #FFFFFF;
-  --sup-2: #E9EEF1;
-  --tinta: #17242A;
-  --apagado: #52626A;
-  --linha: #CDD6DB;
-  --ok: #0F4C5C;
-  --verde: #1F7A4D;
+  --sup-2: #F0F2F4;
+  --tinta: #15181C;
+  --apagado: #626B75;
+  --linha: #E3E6EA;
+  --ok: #24448F;
+  --verde: #2F855A;
   --carro-claro: #D5DBD6;
-  --sombra: 0 1px 2px rgba(20, 30, 25, .1), 0 6px 18px rgba(20, 30, 25, .09);
-  --f-placa: 'Overpass', 'Arial Narrow', Arial, sans-serif;
-  --f-texto: 'Public Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
-  --f-dado: 'Overpass Mono', ui-monospace, Menlo, monospace;
+  --sombra: 0 1px 2px rgba(16, 24, 32, .06);
+  --mercosul: #1F3F99;
+  --f-placa: 'Instrument Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --f-texto: 'Instrument Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --f-dado: 'Instrument Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --f-mono: 'IBM Plex Mono', ui-monospace, Menlo, monospace;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --placa: #136172; --placa-funda: #0A3742; --pare: #E8604C; --sobre-pare: #1C2320; --verde: #5FCB9F;
-    --chao: #10171A; --sup: #182227; --sup-2: #222E34; --tinta: #EAF0F2; --apagado: #A0AFB6; --linha: #33434B; --ok: #6CC6D9;
-    --carro-claro: #55625B; --sombra: 0 1px 2px rgba(0, 0, 0, .4), 0 6px 18px rgba(0, 0, 0, .3);
+    --placa: #3F63C4; --placa-funda: #2F4E9E; --pare: #EF6B5B; --sobre-pare: #15181C; --verde: #5CBF8A; --ambar: #E3B04B;
+    --chao: #0F1114; --sup: #171A1E; --sup-2: #1F2328; --tinta: #E9EBEE; --apagado: #9AA2AC; --linha: #2A2F35; --ok: #8FA9EE;
+    --carro-claro: #55625B; --sombra: 0 1px 2px rgba(0, 0, 0, .35);
     color-scheme: dark;
   }
 }
 :root[data-theme="dark"] {
-  --placa: #136172; --placa-funda: #0A3742; --pare: #E8604C; --sobre-pare: #1C2320; --verde: #5FCB9F;
-  --chao: #10171A; --sup: #182227; --sup-2: #222E34; --tinta: #EAF0F2; --apagado: #A0AFB6; --linha: #33434B; --ok: #6CC6D9;
-  --carro-claro: #55625B; --sombra: 0 1px 2px rgba(0, 0, 0, .4), 0 6px 18px rgba(0, 0, 0, .3);
+  --placa: #3F63C4; --placa-funda: #2F4E9E; --pare: #EF6B5B; --sobre-pare: #15181C; --verde: #5CBF8A; --ambar: #E3B04B;
+  --chao: #0F1114; --sup: #171A1E; --sup-2: #1F2328; --tinta: #E9EBEE; --apagado: #9AA2AC; --linha: #2A2F35; --ok: #8FA9EE;
+  --carro-claro: #55625B; --sombra: 0 1px 2px rgba(0, 0, 0, .35);
   color-scheme: dark;
 }
 
@@ -353,7 +356,8 @@ fieldset.grupo .opcao + .opcao { margin-top: 0; }
 .pontos-ganha { display: flex; align-items: center; gap: 6px; font-size: .9rem; font-weight: 700; color: var(--ok); }
 .proximo { background: var(--sup); border: 1px solid var(--linha); border-radius: 10px; padding: 10px 12px; font-size: .92rem; }
 .alerta-ck { color: #8A5A00 !important; font-weight: 700; }
-@media (prefers-color-scheme: dark) { .alerta-ck { color: var(--ambar) !important; } }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .alerta-ck { color: var(--ambar) !important; } }
+:root[data-theme="dark"] .alerta-ck { color: var(--ambar) !important; }
 
 /* ---------- fidelidade ---------- */
 .fid { background: linear-gradient(140deg, var(--placa), var(--placa-funda)); color: var(--refletivo); border-radius: 16px; padding: 14px 16px; display: flex; flex-direction: column; gap: 5px; box-shadow: var(--sombra); }
@@ -514,6 +518,107 @@ fieldset.grupo .opcao + .opcao { margin-top: 0; }
   .topo { flex-wrap: wrap; }
   .topo-dir { margin-left: 0; width: 100%; justify-content: flex-end; gap: 6px; }
   .topo-dir .fino { padding: 4px 7px; font-size: .8rem; }
+}
+
+/* ---------- v5 (22/11/2026): visual limpo ----------
+   Fica no fim de propósito: troca o acabamento sem mexer no que cada tela faz. */
+body { font-size: 15.5px; -webkit-font-smoothing: antialiased; }
+:focus-visible { outline: 2px solid var(--ok); outline-offset: 2px; }
+
+.topo { padding-block: 10px; gap: 10px; }
+.marca { font: 600 1.05rem/1 var(--f-texto); color: var(--tinta); gap: 8px; letter-spacing: -.01em; }
+.marca svg { width: 20px; height: 20px; color: var(--ok); }
+.fino { border-radius: 8px; padding: 5px 11px; font-size: .86rem; color: var(--tinta); border-color: var(--linha); background: var(--sup); }
+.fino:hover:not(:disabled) { border-color: var(--apagado); }
+.tema { display: inline-grid; place-items: center; width: 32px; height: 32px; padding: 0; color: var(--apagado); }
+.tema svg { width: 17px; height: 17px; }
+.faixa-alerta { background: color-mix(in srgb, var(--ambar) 14%, var(--sup)); color: var(--tinta); font-weight: 500; font-size: .84rem; padding-block: 8px; border-bottom: 1px solid color-mix(in srgb, var(--ambar) 35%, var(--linha)); }
+
+.rotulo { font: 600 .82rem/1.2 var(--f-texto); text-transform: none; letter-spacing: 0; color: var(--apagado); }
+.titulo { font: 600 1.3rem/1.2 var(--f-texto); letter-spacing: -.015em; }
+.titulo small { font-size: .9rem; color: var(--apagado); }
+
+.botao { border-radius: 8px; padding: 10px 16px; font: 600 .95rem/1.1 var(--f-texto); min-height: 42px; }
+.botao.verde { background: var(--placa); color: #FFFFFF; }
+.botao.linha { border: 1px solid var(--linha); background: var(--sup); }
+.botao:hover { filter: none; }
+.botao.verde:hover { background: var(--placa-funda); }
+.botao.linha:hover { border-color: var(--apagado); }
+
+.painel-miolo { gap: 16px; padding-block: 20px; }
+.kpis { gap: 12px; }
+.kpi { border-radius: 10px; padding: 12px 14px; gap: 4px; }
+.kpi small { font-size: .82rem; }
+.kpi b { font: 600 1.45rem/1.1 var(--f-texto); letter-spacing: -.01em; }
+.abas-painel { border-bottom: 1px solid var(--linha); gap: 4px; }
+.abas-painel button { font-weight: 500; padding: 9px 10px; border-bottom-width: 2px; margin-bottom: -1px; }
+.abas-painel button:hover { color: var(--tinta); }
+.abas-painel button[aria-pressed="true"] { color: var(--tinta); border-bottom-color: var(--tinta); }
+
+/* situação: pontinho + texto, sem etiqueta colorida. A cor forte fica só pro que está atrasado. */
+.selo { display: inline-flex; align-items: center; gap: 6px; background: none !important; border: 0 !important; padding: 0; border-radius: 0; font-size: .84rem; font-weight: 500; color: var(--tinta); text-decoration: none; white-space: nowrap; }
+.selo::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--ponto, var(--apagado)); flex: none; }
+.selo.pare { color: var(--pare); --ponto: var(--pare); }
+.selo.atencao { --ponto: var(--ambar); }
+.selo.ok { --ponto: var(--ok); }
+.selo.car-disponivel { color: var(--tinta); --ponto: var(--verde); }
+.selo.car-alugado { color: var(--tinta); --ponto: var(--ok); }
+.selo.car-vistoria, .selo.car-manutencao { color: var(--tinta); --ponto: var(--ambar); }
+.selo.st-reservada { color: var(--tinta); --ponto: var(--ok); }
+.selo.st-retirada { color: var(--tinta); --ponto: var(--ambar); }
+.selo.st-devolvida, .selo.st-cancelada { color: var(--apagado); }
+.fid .selo { color: inherit; }
+
+/* placa Mercosul: branca, faixa azul em cima, a mesma no dia e na noite (é um objeto de verdade) */
+.matricula { position: relative; font: 600 .78rem/1 var(--f-mono); letter-spacing: .08em; background: #FFFFFF; color: #15181C; border: 1px solid #C9CED4; border-radius: 4px; padding: 7px 7px 3px; overflow: hidden; }
+.matricula::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 4px; background: var(--mercosul); }
+
+.tabela-rolo, .quadro { border-radius: 10px; }
+.tabela { font-size: .9rem; }
+.tabela th { font: 500 .8rem/1.2 var(--f-texto); text-transform: none; letter-spacing: 0; padding: 10px 12px; background: var(--sup); }
+.tabela td { padding: 10px 12px; }
+.tabela tbody tr:hover td { background: color-mix(in srgb, var(--sup-2) 60%, transparent); }
+.num { font-family: var(--f-dado); }
+.mono { font-family: var(--f-texto); font-variant-numeric: tabular-nums; }
+
+/* lembretes: linha fina; o atrasado e o de hoje ganham só um traço na esquerda */
+.aviso-lem { border-left: 2px solid var(--linha); color: var(--apagado); }
+.lem-lista { gap: 0; background: var(--sup); border: 1px solid var(--linha); border-radius: 10px; overflow: hidden; }
+.lem { border: 0; border-radius: 0; border-top: 1px solid var(--linha); padding: 12px 14px; box-shadow: inset 3px 0 0 transparent; }
+.lem:first-child { border-top: 0; }
+.lem.lem-atrasado { border: 0; border-top: 1px solid var(--linha); box-shadow: inset 3px 0 0 var(--pare); }
+.lem.lem-hoje { border: 0; border-top: 1px solid var(--linha); box-shadow: inset 3px 0 0 var(--ambar); }
+.lem.lem-atrasado:first-child, .lem.lem-hoje:first-child { border-top: 0; }
+.lem-txt strong { font-weight: 600; }
+.lem .botao { min-height: 36px; padding: 7px 12px; font-size: .88rem; }
+.lem-km input, .troca input, .pl-entrada input { font-family: var(--f-texto); font-variant-numeric: tabular-nums; font-weight: 500; }
+
+.manut-cartao, .ficha, .preco-linha, .conta, .revisao, .proximo, .vitrine, .lojas li, .mini-plano, .vant, .tipo { box-shadow: none; }
+.troca.tr-passou { border: 1px solid var(--linha); box-shadow: inset 3px 0 0 var(--pare); }
+.troca.tr-perto { border: 1px solid var(--linha); box-shadow: inset 3px 0 0 var(--ambar); }
+.cl-cab strong, .ficha-dados strong { font-weight: 600; }
+.mes-nav strong { font-weight: 600; text-transform: lowercase; } .mes-nav strong::first-letter { text-transform: uppercase; }
+.vazio { border-style: solid; }
+.link { font-weight: 500; text-underline-offset: 2px; }
+.chip { font-weight: 500; }
+
+.janela { background: var(--sup); }
+.jan-fundo { background: rgba(10, 12, 15, .5); }
+.fechar { background: var(--sup-2); color: var(--tinta); }
+.aviso { font-weight: 500; border-radius: 8px; }
+
+.entrada { background: var(--chao); }
+.ent-cartao { border-radius: 12px; box-shadow: none; padding: 24px; }
+.ent-marca { font: 600 1.15rem/1 var(--f-texto); color: var(--tinta); }
+
+/* topo no celular: nome da marca visível e tudo numa linha só */
+@media (max-width: 460px) {
+  .marca-nome { display: inline; }
+  .topo { flex-wrap: nowrap; }
+  .topo-dir { margin-left: auto; width: auto; gap: 6px; }
+  .topo-dir .fino { padding: 5px 9px; font-size: .84rem; }
+  .topo-dir .tema { padding: 0; }
+  .kpi b { font-size: 1.3rem; }
 }
 
 </style>
@@ -1243,6 +1348,8 @@ fieldset.grupo .opcao + .opcao { margin-top: 0; }
     vistaCliente: 'Cliente',
     vistaLocadora: 'Locadora',
     vistaAmbos: 'Lado a lado',
+    temaDia: 'Mudar para o modo dia',
+    temaNoite: 'Mudar para o modo noite',
     salvarCopia: 'Salvar cópia',
     salvandoCopia: 'Salvando…',
     copiaSalva: 'Cópia salva. Guarde esse arquivo: é com ele que seus dados vão para a próxima versão.',
@@ -2770,6 +2877,32 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     avisar.tempo = setTimeout(() => { el.hidden = true; }, 3800);
   }
 
+  /* ---------- tema dia / noite ----------
+     Sem escolha salva, segue o celular. A escolha fica só neste aparelho (se o navegador não deixar guardar, vale até fechar). */
+  const CHAVE_TEMA = 'mimizinho-tema';
+  function temaSalvo() {
+    try { const v = localStorage.getItem(CHAVE_TEMA); return v === 'light' || v === 'dark' ? v : null; } catch { return null; }
+  }
+  function temaAtual() {
+    const v = document.documentElement.dataset.theme;
+    if (v === 'light' || v === 'dark') return v;
+    return window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  }
+  function aplicarTema(v) {
+    if (v) document.documentElement.dataset.theme = v; else delete document.documentElement.dataset.theme;
+  }
+  aplicarTema(temaSalvo());
+  if (window.matchMedia) {
+    try { matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { if (!temaSalvo()) desenhar(); }); } catch { /* navegador antigo: o botão continua funcionando */ }
+  }
+  const ICONE_SOL = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M5.3 18.7l1.6-1.6M17.1 6.9l1.6-1.6"/></svg>';
+  const ICONE_LUA = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5Z"/></svg>';
+  function botaoTema() {
+    const noite = temaAtual() === 'dark';
+    const rotulo = t(noite ? 'temaDia' : 'temaNoite');
+    return `<button class="fino tema" data-acao="tema" aria-label="${esc(rotulo)}" title="${esc(rotulo)}">${noite ? ICONE_SOL : ICONE_LUA}</button>`;
+  }
+
   /* ---------- barra de cima ---------- */
   function topo() {
     const vistas = [['cliente', 'vistaCliente'], ['locadora', 'vistaLocadora'], ['ambos', 'vistaAmbos']];
@@ -2779,6 +2912,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
         ${vistas.map(([id, k]) => `<button class="vista${id === 'ambos' ? ' so-largo' : ''}" data-acao="modo" data-x="${id}" aria-pressed="${UI.modo === id}">${t(k)}</button>`).join('')}
       </div>` : ''}
       <div class="topo-dir">
+        ${botaoTema()}
         ${D.CONFIG.copias ? `<button class="fino copia" data-acao="salvarCopia"${UI.salvandoCopia ? ' disabled' : ''}>${t(UI.salvandoCopia ? 'salvandoCopia' : 'salvarCopia')}</button>
         <button class="fino copia" data-acao="anexarCopia"${UI.modal && UI.modal.tipo === 'copia' ? ' disabled' : ''}>${t('anexarCopia')}</button>
         <input type="file" id="arquivo-copia" accept=".json,application/json" data-campo="arquivoCopia" hidden>` : ''}
@@ -4733,6 +4867,12 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
       }
     },
     modo(x) { UI.modo = D.CONFIG.ladoCliente ? x : 'locadora'; desenhar(); },
+    tema() {
+      const v = temaAtual() === 'dark' ? 'light' : 'dark';
+      aplicarTema(v);
+      try { localStorage.setItem(CHAVE_TEMA, v); } catch { /* sem guardar: vale só até fechar */ }
+      desenhar();
+    },
     // "Anexar cópia salva": escolhe o .json que o "Salvar cópia" baixou
     anexarCopia() {
       if (!D.CONFIG.copias || (NUVEM.modo !== 'banco' && NUVEM.modo !== 'bancoVazio')) return;
