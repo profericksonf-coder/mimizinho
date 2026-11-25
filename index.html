@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Mimizinho Aluguel de Carros</title>
+<title>Track Go Locadora de Veículos</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@600&family=Instrument+Sans:wght@400;500;600&display=swap">
 <style>
@@ -11,24 +11,26 @@
    listas com linha fina, situação com pontinho e a placa Mercosul como único detalhe de personalidade.
    Dois temas: dia e noite (botão no topo; sem escolha, segue o celular). */
 :root {
-  --placa: #24448F;
-  --placa-funda: #1B3470;
-  --refletivo: #FFFFFF;
-  --ambar: #C98A12;
-  --sobre-ambar: #15181C;
+  /* v6 (24/11/2026): cores da marca Track Go (laranja do logo + grafite do fundo do logo). Nomes antigos mantidos. */
+  --placa: #F27400;
+  --placa-funda: #D96800;
+  --refletivo: #14181A;
+  --ambar: #D9A80B;
+  --sobre-ambar: #14181A;
   --pare: #C0392B;
   --sobre-pare: #FFFFFF;
-  --chao: #F5F6F8;
+  --chao: #F3F4F4;
   --sup: #FFFFFF;
-  --sup-2: #F0F2F4;
-  --tinta: #15181C;
-  --apagado: #626B75;
-  --linha: #E3E6EA;
-  --ok: #24448F;
+  --sup-2: #ECEEEE;
+  --tinta: #14181A;
+  --apagado: #5E676B;
+  --linha: #DFE2E3;
+  --ok: #B35300;
   --verde: #2F855A;
   --carro-claro: #D5DBD6;
-  --sombra: 0 1px 2px rgba(16, 24, 32, .06);
+  --sombra: 0 1px 2px rgba(20, 24, 26, .06);
   --mercosul: #1F3F99;
+  --grafite: #14181A;
   --f-placa: 'Instrument Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --f-texto: 'Instrument Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --f-dado: 'Instrument Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
@@ -36,17 +38,17 @@
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --placa: #3F63C4; --placa-funda: #2F4E9E; --pare: #EF6B5B; --sobre-pare: #15181C; --verde: #5CBF8A; --ambar: #E3B04B;
-    --chao: #0F1114; --sup: #171A1E; --sup-2: #1F2328; --tinta: #E9EBEE; --apagado: #9AA2AC; --linha: #2A2F35; --ok: #8FA9EE;
+    --placa: #F27400; --placa-funda: #D96800; --refletivo: #14181A; --pare: #EF6B5B; --sobre-pare: #14181A; --verde: #5CBF8A; --ambar: #E8C04A;
+    --chao: #0F1314; --sup: #171B1D; --sup-2: #1F2427; --tinta: #F2F3F3; --apagado: #9AA3A6; --linha: #2A3033; --ok: #FF8A1F;
     --carro-claro: #55625B; --sombra: 0 1px 2px rgba(0, 0, 0, .35);
     color-scheme: dark;
   }
 }
 :root[data-theme="dark"] {
-  --placa: #3F63C4; --placa-funda: #2F4E9E; --pare: #EF6B5B; --sobre-pare: #15181C; --verde: #5CBF8A; --ambar: #E3B04B;
-  --chao: #0F1114; --sup: #171A1E; --sup-2: #1F2328; --tinta: #E9EBEE; --apagado: #9AA2AC; --linha: #2A2F35; --ok: #8FA9EE;
-  --carro-claro: #55625B; --sombra: 0 1px 2px rgba(0, 0, 0, .35);
-  color-scheme: dark;
+  --placa: #F27400; --placa-funda: #D96800; --refletivo: #14181A; --pare: #EF6B5B; --sobre-pare: #14181A; --verde: #5CBF8A; --ambar: #E8C04A;
+    --chao: #0F1314; --sup: #171B1D; --sup-2: #1F2427; --tinta: #F2F3F3; --apagado: #9AA3A6; --linha: #2A3033; --ok: #FF8A1F;
+    --carro-claro: #55625B; --sombra: 0 1px 2px rgba(0, 0, 0, .35);
+    color-scheme: dark;
 }
 
 * { box-sizing: border-box; }
@@ -621,6 +623,24 @@ body { font-size: 15.5px; -webkit-font-smoothing: antialiased; }
   .kpi b { font-size: 1.3rem; }
 }
 
+/* ---------- v6 (24/11/2026): marca Track Go ----------
+   Mesmo visual da v5 (modo dia branco, modo noite escuro, placa Mercosul), só com as cores da marca:
+   laranja = ação e destaque, com texto grafite em cima (branco no laranja fica ilegível); linha laranja fina sob a barra de cima.
+   O logo troca de versão com o tema (TRACK grafite no dia, branco na noite). */
+.topo { border-bottom: 2px solid var(--placa); }
+.marca { display: inline-flex; align-items: center; min-width: 0; }
+.marca-logo { display: block; height: 40px; width: auto; max-width: 46vw; }
+.marca-nome { display: inline; font: 700 1.05rem/1 var(--f-texto); color: var(--tinta); }
+.ent-marca { display: flex; justify-content: center; margin-bottom: 6px; }
+.ent-marca .marca-logo { height: auto; width: min(240px, 80%); max-width: 100%; }
+.botao.verde { color: var(--refletivo); }
+.vista[aria-pressed="true"] { color: var(--refletivo); }
+@media (max-width: 460px) { .marca-logo { height: 30px; } }
+/* filtros: uma linha por filtro dentro do bloco */
+.filtro-linha { display: grid; gap: 2px; padding-block: 6px; border-top: 1px solid var(--linha); }
+.filtro-linha .troca-topo span:first-child { font-weight: 600; font-size: .9rem; }
+.ak-devolver { font-size: 1.05rem; padding: 10px 12px; background: var(--sup-2); border-radius: 8px; }
+
 </style>
 <div id="app" class="app"></div>
 <div id="modal"></div>
@@ -658,6 +678,9 @@ body { font-size: 15.5px; -webkit-font-smoothing: antialiased; }
 
   const KM_MAX = 2000000;
   const TIPOS_MANUTENCAO = ['oleo', 'filtro', 'outra'];
+  // 24/11/2026 (pedido do Adilson): a troca de óleo já inclui o filtro de óleo; os outros filtros são escolhidos numa lista.
+  // Registro antigo de filtro (sem `filtro`) continua valendo como "filtro sem especificar".
+  const FILTROS = ['ar', 'arCondicionado', 'combustivel', 'outro'];
 
   // "abc-1d23" -> "ABC1D23"
   function normalizarPlaca(texto) { return String(texto || '').toUpperCase().replace(/[^A-Z0-9]/g, ''); }
@@ -721,10 +744,15 @@ body { font-size: 15.5px; -webkit-font-smoothing: antialiased; }
     const renavam = String(f.renavam || '').replace(/[\s.-]/g, '');
     if (renavam && !renavamValido(renavam)) erros.renavam = 'erroRenavam';
     else if (renavam && renavamsEmUso.includes(renavam)) erros.renavam = 'erroRenavamRepetido';
-    return { erros, carro: { modelo, ano, placa, categoria: f.categoria, tarifa, km, fipe, cor, renavam } };
+    const carro = { modelo, ano, placa, categoria: f.categoria, tarifa, km, fipe, cor, renavam };
+    // intervalos de troca: o dono informa por carro (não existe padrão); só confere quando o formulário traz os campos
+    if (f.oleoKm !== undefined) { carro.oleoKm = validarIntervalo(f.oleoKm); if (carro.oleoKm === null) erros.oleoKm = 'erroIntervalo'; }
+    if (f.filtroKm !== undefined) { carro.filtroKm = validarIntervalo(f.filtroKm); if (carro.filtroKm === null) erros.filtroKm = 'erroIntervalo'; }
+    return { erros, carro };
   }
 
-  /* f: { tipo, data (AAAA-MM-DD), km, valor, obs }; outra manutenção precisa dizer o que foi na observação */
+  /* f: { tipo, data (AAAA-MM-DD), km, valor, obs, filtro }; outra manutenção precisa dizer o que foi feito;
+     troca de filtro precisa dizer qual filtro (e "outro filtro" precisa dizer qual na observação) */
   function validarManutencao(f, hoje) {
     const erros = {};
     if (!TIPOS_MANUTENCAO.includes(f.tipo)) erros.tipo = 'erroTipoManut';
@@ -738,7 +766,13 @@ body { font-size: 15.5px; -webkit-font-smoothing: antialiased; }
     const obs = String(f.obs || '').trim();
     if (obs.length > 200) erros.obs = 'erroObsLonga';
     else if (f.tipo === 'outra' && obs.length < 3) erros.obs = 'erroObsOutra';
-    return { erros, registro: { tipo: f.tipo, data, km, valor, obs } };
+    const registro = { tipo: f.tipo, data, km, valor, obs };
+    if (f.tipo === 'filtro') {
+      if (!FILTROS.includes(f.filtro)) erros.filtro = 'erroQualFiltro';
+      else if (f.filtro === 'outro' && obs.length < 3 && !erros.obs) erros.obs = 'erroObsFiltro';
+      registro.filtro = f.filtro;
+    }
+    return { erros, registro };
   }
 
   // intervalo de troca digitado: km inteiro entre 500 e 100 mil, ou null
@@ -751,10 +785,11 @@ body { font-size: 15.5px; -webkit-font-smoothing: antialiased; }
      vence o que chegar primeiro (óleo a cada X km ou 6 meses; filtro a cada X km ou 12 meses).
      Sem `hoje`, só olha o km. estado: semRegistro | ok | perto | passou */
   const PESO_ESTADO = { ok: 0, perto: 1, passou: 2 };
-  function situacaoTroca(u, manutencoes, tipo, hoje) {
+  // `filtro` (opcional) separa cada filtro: '' = registro antigo sem dizer qual
+  function situacaoTroca(u, manutencoes, tipo, hoje, filtro) {
     const intervalo = tipo === 'oleo' ? u.oleoKm : u.filtroKm;
     const prazoDias = tipo === 'oleo' ? REGRAS.oleoPadraoDias : REGRAS.filtroPadraoDias;
-    const regs = manutencoes.filter((m) => m.unidade === u.id && m.tipo === tipo);
+    const regs = manutencoes.filter((m) => m.unidade === u.id && m.tipo === tipo && (filtro === undefined || (m.filtro || '') === filtro));
     if (!regs.length) return { estado: 'semRegistro', intervalo, ultimaKm: null, proximaKm: null, faltam: null, prazoDias, ultimaData: null, proximaData: null, diasFaltam: null };
     const ultimaKm = Math.max(...regs.map((m) => m.km)), proximaKm = ultimaKm + intervalo, faltam = proximaKm - u.km;
     const ultimaData = regs.map((m) => m.data).sort().pop(), proximaData = somarDias(ultimaData, prazoDias);
@@ -763,6 +798,18 @@ body { font-size: 15.5px; -webkit-font-smoothing: antialiased; }
     const porData = diasFaltam === null ? 'ok' : diasFaltam <= 0 ? 'passou' : diasFaltam <= REGRAS.avisoTrocaDias ? 'perto' : 'ok';
     const estado = PESO_ESTADO[porData] > PESO_ESTADO[porKm] ? porData : porKm;
     return { estado, intervalo, ultimaKm, proximaKm, faltam, prazoDias, ultimaData, proximaData, diasFaltam };
+  }
+
+  /* situação de cada filtro já trocado alguma vez no carro (cada um vence do seu último registro, todos com o
+     mesmo intervalo do carro). Sem nenhum registro de filtro: uma linha só, "semRegistro".
+     Devolve { linhas: [{ filtro, s }], estado: o pior entre eles } */
+  function situacaoFiltros(u, manutencoes, hoje) {
+    const tipos = [...new Set(manutencoes.filter((m) => m.unidade === u.id && m.tipo === 'filtro').map((m) => m.filtro || ''))]
+      .sort((a, b) => (FILTROS.indexOf(a) + 1 || 99) - (FILTROS.indexOf(b) + 1 || 99));
+    if (!tipos.length) { const s = situacaoTroca(u, manutencoes, 'filtro', hoje); return { linhas: [{ filtro: null, s }], estado: s.estado, intervalo: s.intervalo }; }
+    const linhas = tipos.map((filtro) => ({ filtro, s: situacaoTroca(u, manutencoes, 'filtro', hoje, filtro) }));
+    const pior = linhas.reduce((a, b) => (PESO_ESTADO[b.s.estado] > PESO_ESTADO[a.s.estado] ? b : a));
+    return { linhas, estado: pior.s.estado, intervalo: u.filtroKm, pior: pior.s };
   }
 
   // dias corridos de a até b (datas AAAA-MM-DD); negativo se b vem antes
@@ -817,14 +864,58 @@ body { font-size: 15.5px; -webkit-font-smoothing: antialiased; }
       valorSemanal = validarDinheiro(f.valorSemanal, 100, 1000000);
       if (valorSemanal === null) erros.valorSemanal = 'erroValorSemanal';
     } else if ((entrega && !dataValida(entrega)) || (devolucao && !dataValida(devolucao))) erros.entrega = 'erroDataManut';
+    // caução (24/11/2026): garantia paga de uma vez no começo do contrato; acertada só no fim. Em branco = sem caução.
+    const caucaoTxt = String(f.caucao ?? '').trim();
+    let caucao = 0, caucaoData = '';
+    if (caucaoTxt) {
+      caucao = validarDinheiro(caucaoTxt, 100, 10000000);
+      if (caucao === null) { erros.caucao = 'erroCaucao'; caucao = 0; }
+      caucaoData = String(f.caucaoData || '');
+      if (!dataValida(caucaoData)) erros.caucaoData = 'erroDataManut';
+      else if (caucaoData > opc.hoje) erros.caucaoData = 'erroDataManutFutura';
+    }
+    if (f.caucaoAcertada && caucao !== f.caucaoAcertada) erros.caucao = 'erroCaucaoAcertada';
     return {
       erros,
       cliente: {
         nome, cpf, cnhNumero, cnhCategoria, cnhValidade, endereco, fone, email,
         antecedentes: { ok: antOk, data: antOk ? antData : '', obs: antObs },
         unidade, entrega: unidade ? entrega : '', devolucao: unidade ? devolucao : '', diaVenc, valorSemanal: valorSemanal || 0,
+        caucao, caucaoData,
       },
     };
+  }
+
+  /* situação da caução do cliente. null = sem caução.
+     guardada: contrato rolando (ou sem data de devolução); acertar: o contrato terminou e falta acertar;
+     acertada: já devolveu (com ou sem desconto) */
+  function situacaoCaucao(c, hoje) {
+    if (!(c.caucao > 0)) return null;
+    if (c.caucaoAcerto) return { estado: 'acertada', valor: c.caucao, ...c.caucaoAcerto };
+    if (c.devolucao && c.devolucao <= hoje) return { estado: 'acertar', valor: c.caucao, dias: diasEntre(c.devolucao, hoje) };
+    return { estado: 'guardada', valor: c.caucao };
+  }
+
+  /* acerto da caução no fim do contrato: f = { descontado (R$, pode ser 0), motivo, data }.
+     Com desconto, o motivo é obrigatório. Devolve { erros, acerto: { data, descontado, devolvido, motivo } } */
+  function validarAcertoCaucao(f, c, hoje) {
+    const erros = {};
+    const descTxt = String(f.descontado ?? '').trim();
+    const descontado = descTxt === '' ? 0 : validarDinheiro(descTxt, 0, c.caucao);
+    if (descontado === null) erros.descontado = 'erroDescontoCaucao';
+    const motivo = String(f.motivo || '').trim().replace(/\s+/g, ' ');
+    if (motivo.length > 200) erros.motivo = 'erroObsLonga';
+    else if (descontado > 0 && motivo.length < 3) erros.motivo = 'erroMotivoCaucao';
+    const data = String(f.data || '');
+    if (!dataValida(data)) erros.data = 'erroDataManut';
+    else if (data > hoje) erros.data = 'erroDataManutFutura';
+    const d = descontado || 0;
+    return { erros, acerto: { data, descontado: d, devolvido: c.caucao - d, motivo } };
+  }
+
+  // quanto de caução está guardado agora (dinheiro dos clientes, a devolver)
+  function caucoesGuardadas(clientes) {
+    return (clientes || []).filter((c) => c.caucao > 0 && !c.caucaoAcerto).reduce((s, c) => s + c.caucao, 0);
   }
 
   // CNH: vencida | vence (em até 30 dias) | ok
@@ -1003,7 +1094,10 @@ body { font-size: 15.5px; -webkit-font-smoothing: antialiased; }
     const res = estado.reservas.filter((r) => r.unidade === u.id && doMes(r.ini));
     const valendo = res.filter((r) => r.status !== 'cancelada');
     const semanal = (estado.recebimentos || []).filter((p) => p.unidade === u.id && doMes(p.data)).reduce((s, p) => s + p.valor, 0);
-    const receita = res.reduce((s, r) => s + (r.status === 'cancelada' ? r.multa || 0 : r.total), 0) + semanal;
+    // caução não é receita (é do cliente); só a parte descontada no acerto entra, no mês do acerto
+    const caucaoRetida = (estado.clientes || []).filter((c) => c.unidade === u.id && c.caucaoAcerto && c.caucaoAcerto.descontado > 0 && doMes(c.caucaoAcerto.data))
+      .reduce((s, c) => s + c.caucaoAcerto.descontado, 0);
+    const receita = res.reduce((s, r) => s + (r.status === 'cancelada' ? r.multa || 0 : r.total), 0) + semanal + caucaoRetida;
     const manutencao = estado.manutencoes.filter((m) => m.unidade === u.id && doMes(m.data)).reduce((s, m) => s + m.valor, 0);
     const meus = estado.custos.filter((c) => c.unidade === u.id);
     const custos = meus.reduce((s, c) => s + custoNoMes(c, mes), 0);
@@ -1013,7 +1107,7 @@ body { font-size: 15.5px; -webkit-font-smoothing: antialiased; }
     const custoCarro = manutencao + custos + ipvaEstimado;
     const lucro = receita - custoCarro - fixo;
     return {
-      unidade: u.id, receita, semanal, reservas: valendo.length, diarias: valendo.reduce((s, r) => s + diarias(r.ini, r.fim), 0),
+      unidade: u.id, receita, semanal, caucaoRetida, reservas: valendo.length, diarias: valendo.reduce((s, r) => s + diarias(r.ini, r.fim), 0),
       manutencao, custos, ipvaEstimado, fixo, custoCarro, lucro, margem: receita > 0 ? Math.round((lucro * 1000) / receita) / 10 : null,
     };
   }
@@ -1228,7 +1322,7 @@ body { font-size: 15.5px; -webkit-font-smoothing: antialiased; }
     unidadesLivres, lojaAberta, preco, cpfValido, validarMotorista, validarTarifa, novoCodigo, multaCancelamento,
     checkinFeito, pontosDe, fidelidade, estadoCarro, indicadores,
     TIPOS_MANUTENCAO, normalizarPlaca, placaValida, validarValor, validarCarro, validarManutencao, validarIntervalo,
-    situacaoTroca, gastoManutencao,
+    situacaoTroca, situacaoFiltros, gastoManutencao, FILTROS, situacaoCaucao, validarAcertoCaucao, caucoesGuardadas,
     TIPOS_CUSTO, CUSTOS_ANUAIS, validarDinheiro, validarFipe, validarAliquota, ipva, validarCusto, validarFixo, somarMes,
     custoNoMes, custoCobreMes, totalFixos, fixoPorCarro, margemCarro, margemFrota, simular,
     digitoRenavam, renavamValido, diasEntre, diaDaSemana, dataValida, CATEGORIAS_CNH, validarCliente, situacaoCnh,
@@ -1239,14 +1333,14 @@ body { font-size: 15.5px; -webkit-font-smoothing: antialiased; }
 
 </script>
 <script>
-/* Mimizinho: tudo que muda de cliente pra cliente mora aqui (marca, loja, frota, preços, proteções e textos).
+/* Track Go (app Mimizinho): tudo que muda de cliente pra cliente mora aqui (marca, loja, frota, preços, proteções e textos).
    Quem for adaptar o protótipo pra uma locadora real mexe só neste arquivo. Todos os dados são fictícios. */
 (function (raiz, fabrica) {
   if (typeof module === 'object' && module.exports) module.exports = fabrica();
   else raiz.Dados = fabrica();
 })(typeof self !== 'undefined' ? self : this, function () {
   const CONFIG = {
-    marca: 'Mimizinho', moeda: 'BRL', locale: 'pt-BR', cidade: 'Belo Horizonte, MG',
+    marca: 'Track Go', moeda: 'BRL', locale: 'pt-BR', cidade: 'Belo Horizonte, MG',
     // 21/11/2026: o Adilson usa só a parte da locadora, sem reserva pelo app. Pra religar no futuro, é só trocar pra true:
     ladoCliente: false, // tela em que o cliente final reserva o carro (e os botões Cliente / Locadora / Lado a lado)
     reservas: false,    // o que depende de reserva no painel: retiradas e devoluções, aba Reservas, Quadro da frota, "Reservado neste mês"
@@ -1371,7 +1465,7 @@ body { font-size: 15.5px; -webkit-font-smoothing: antialiased; }
     copiaPassoEnviando: 'Enviando arquivos: {f} de {n}…',
     copiaAnexada: 'Pronto: {c} carros, {k} clientes e {a} arquivos no banco.',
     copiaAnexadaFaltou: 'Pronto: {c} carros, {k} clientes e {a} arquivos no banco. {f} anexos vieram sem arquivo na cópia (só a ficha).',
-    erroCopiaFormato: 'Esse arquivo não é uma cópia do Mimizinho. Escolha o .json baixado em "Salvar cópia".',
+    erroCopiaFormato: 'Esse arquivo não é uma cópia da Track Go. Escolha o .json baixado em "Salvar cópia".',
     erroCopiaInvalida: 'Essa cópia tem dados que o app não reconhece. Nada foi gravado.',
     erroAnexarBanco: 'Não consegui gravar a cópia no banco. Nada foi trocado: o banco ficou como estava. Confira a internet e tente de novo.',
     erroBanco: 'Não consegui salvar no banco agora. Confira a internet: o app tenta de novo sozinho.',
@@ -1551,7 +1645,7 @@ body { font-size: 15.5px; -webkit-font-smoothing: antialiased; }
     st_retirada: 'Em andamento',
     st_devolvida: 'Concluída',
     st_cancelada: 'Cancelada',
-    fidTitulo: 'Mimizinho Pontos',
+    fidTitulo: 'Track Go Pontos',
     fidSaldo: '{n} pontos',
     fidNivel: 'Nível {n}',
     fidFaltam: 'Faltam {n} pontos para o nível {p}',
@@ -1742,15 +1836,27 @@ body { font-size: 15.5px; -webkit-font-smoothing: antialiased; }
     // manutenção (dono)
     abaManut: 'Manutenção',
     abaManutAlerta: 'Manutenção ({n})',
-    manutAjuda: 'Registre cada troca com a data e o km do momento. A troca vence pelo km ou pela data, o que chegar primeiro (óleo: a cada 6 meses; filtro: a cada 12 meses). O alerta aparece quando faltam {n} km ou {d} dias ou menos.',
+    manutAjuda: 'Registre cada troca com a data e o km do momento. A troca vence pelo km ou pela data, o que chegar primeiro (óleo: a cada 6 meses; filtros: a cada 12 meses). Cada filtro conta do seu último registro. O alerta aparece quando faltam {n} km ou {d} dias ou menos.',
     manutVencidas: '{n} com troca vencida',
     manutPerto: '{n} perto do limite',
     manutTotalGeral: 'Gasto total em manutenção: {v}',
-    troca_oleo: 'Troca de óleo',
+    troca_oleo: 'Óleo + filtro de óleo',
     troca_filtro: 'Troca de filtro',
+    filtro_ar: 'Filtro de ar',
+    filtro_arCondicionado: 'Filtro do ar-condicionado',
+    filtro_combustivel: 'Filtro de combustível',
+    filtro_outro: 'Outro filtro',
+    filtro_: 'Filtro (sem dizer qual)',
+    fm_filtro: 'Qual filtro',
+    fm_filtroEscolha: 'Escolha o filtro',
+    erroQualFiltro: 'Escolha qual filtro foi trocado.',
+    erroObsFiltro: 'Diga qual filtro foi trocado.',
+    fm_obsFiltro: 'Qual filtro',
+    fm_oQueFoi: 'O que foi feito',
+    fm_oQueFoiAjuda: 'Ex.: troca de embreagem, pastilha de freio, alinhamento.',
     troca_outra: 'Outra manutenção',
-    curto_oleo: 'Óleo',
-    curto_filtro: 'Filtro',
+    curto_oleo: 'Óleo + filtro de óleo',
+    curto_filtro: 'Filtros',
     tr_semRegistro: 'sem registro',
     tr_ok: 'em dia',
     tr_perto: 'perto do limite',
@@ -1759,7 +1865,8 @@ body { font-size: 15.5px; -webkit-font-smoothing: antialiased; }
     trPassou: 'Era com {p} km · passou {f} km',
     trSemRegistroTxt: 'Registre a última troca para o app calcular a próxima.',
     intervaloOleo: 'Trocar óleo a cada (km)',
-    intervaloFiltro: 'Trocar filtro a cada (km)',
+    intervaloFiltro: 'Trocar filtros a cada (km)',
+    fc_intervalosAjuda: 'Você decide de quantos em quantos km troca neste carro. Dá pra mudar depois na aba Manutenção.',
     erroIntervalo: 'Use de 500 a 100.000 km.',
     intervaloSalvo: '{p}: {k} a cada {n} km',
     kmAtual: '{n} km',
@@ -1775,15 +1882,15 @@ body { font-size: 15.5px; -webkit-font-smoothing: antialiased; }
     fm_km: 'Quilometragem no momento (km)',
     fm_kmAjuda: 'Se for maior que o km atual do carro ({n} km), o km do carro é atualizado.',
     fm_valor: 'Valor gasto (R$)',
-    fm_obs: 'Observação',
-    fm_obsAjuda: 'Em "Outra manutenção", diga o que foi feito (ex.: pastilha de freio).',
+    fm_obs: 'Observação (opcional)',
+    fm_obsAjuda: '',
     fm_salvar: 'Salvar manutenção',
     erroTipoManut: 'Escolha o que foi feito.',
     erroDataManut: 'Escolha uma data válida.',
     erroDataManutFutura: 'A data não pode ser depois de hoje.',
     erroValorManut: 'Valor em reais, de 0 a R$ 100.000 (ex.: 250,90).',
     erroObsLonga: 'A observação pode ter no máximo 200 letras.',
-    erroObsOutra: 'Diga na observação qual foi a manutenção.',
+    erroObsOutra: 'Diga o que foi feito.',
     // ficha do carro, custos, margem, simulador e configurações (dono)
     abaFicha: 'Ficha do carro',
     abaMargem: 'Custos e margem',
@@ -1818,6 +1925,7 @@ body { font-size: 15.5px; -webkit-font-smoothing: antialiased; }
     tc_outro: 'Outros',
     mgReceita: 'Receita ({n} reservas, {d} diárias)',
     mgReceitaUma: 'Receita (1 reserva, {d} diárias)',
+    mgCaucao: 'Caução descontada no acerto',
     mgSemanal: 'Aluguel semanal recebido',
     mgManutencao: 'Manutenção',
     mgCustos: 'Custos lançados (IPVA e seguro em 1/12)',
@@ -1912,7 +2020,7 @@ body { font-size: 15.5px; -webkit-font-smoothing: antialiased; }
     trUltima: 'Última troca em {d}',
     // clientes do aluguel semanal
     abaClientes: 'Clientes',
-    clientesAjuda: 'Clientes do aluguel semanal. Ficam no banco do Mimizinho, que só quem tem login liberado vê.',
+    clientesAjuda: 'Clientes do aluguel semanal. Ficam no banco da Track Go, que só quem tem login liberado vê.',
     cadastrarCliente: 'Cadastrar cliente',
     editarClienteTitulo: 'Editar cliente',
     semClientes: 'Nenhum cliente cadastrado ainda.',
@@ -1937,6 +2045,35 @@ body { font-size: 15.5px; -webkit-font-smoothing: antialiased; }
     fl_devolucaoAjuda: 'Em branco = contrato sem data para terminar.',
     fl_diaVenc: 'Dia do vencimento (toda semana)',
     fl_valorSemanal: 'Valor semanal (R$)',
+    fl_caucaoTitulo: 'Caução',
+    fl_caucao: 'Valor da caução (R$)',
+    fl_caucaoAjuda: 'Garantia paga de uma vez no começo. Deixe em branco se não teve caução.',
+    fl_caucaoData: 'Recebida em',
+    fl_caucaoTravada: 'A caução já foi acertada ({d}); o valor não muda mais.',
+    erroCaucao: 'Valor em reais, de R$ 1 a R$ 100.000 (ex.: 1.300).',
+    erroCaucaoAcertada: 'A caução já foi acertada; o valor não pode mudar.',
+    cau_guardada: 'Caução {v} guardada',
+    cau_acertar: 'Acertar caução de {v}',
+    cau_acertada: 'Caução acertada em {d}',
+    cauAcertadaTxt: 'Caução de {v}: devolvido {r}{x}.',
+    cauDescontoTxt: ', descontado {d} ({m})',
+    acertarCaucao: 'Acertar caução',
+    lemCaucao: 'Acertar a caução',
+    lemCaucaoTxt: 'Contrato terminou em {d} · caução de {v}',
+    lemCaucaoSelo: 'contrato terminou',
+    kpiCaucoes: 'Cauções guardadas',
+    ak_titulo: 'Acertar caução',
+    ak_resumo: '{n} · caução de {v}, recebida em {d}',
+    ak_descontado: 'Descontar (R$)',
+    ak_descontadoAjuda: 'Avaria, multa, atraso… Deixe em branco pra devolver tudo.',
+    ak_motivo: 'Motivo do desconto',
+    ak_data: 'Data do acerto',
+    ak_devolver: 'Devolver ao cliente: {v}',
+    ak_salvar: 'Salvar acerto',
+    ak_aviso: 'Depois de salvo, o acerto não muda mais. O valor descontado entra como receita do carro no mês do acerto.',
+    erroDescontoCaucao: 'Valor em reais, de 0 até o valor da caução.',
+    erroMotivoCaucao: 'Diga o motivo do desconto.',
+    caucaoAcertadaAviso: 'Caução de {n} acertada: devolver {v}',
     fl_salvar: 'Salvar cliente',
     sem_0: 'Domingo', sem_1: 'Segunda-feira', sem_2: 'Terça-feira', sem_3: 'Quarta-feira', sem_4: 'Quinta-feira', sem_5: 'Sexta-feira', sem_6: 'Sábado',
     erroCnhNumero: 'O número da CNH tem 11 números.',
@@ -1973,7 +2110,7 @@ body { font-size: 15.5px; -webkit-font-smoothing: antialiased; }
     anexos: 'Anexos',
     anexosN: 'Anexos ({n})',
     anexosDe: 'Anexos: {n}',
-    anexosAjuda: 'PDF ou imagem (JPG, PNG ou WEBP), até {n} MB por arquivo: contrato, CNH, comprovante, documento do carro. Fica guardado no banco do Mimizinho, que só quem tem login liberado vê.',
+    anexosAjuda: 'PDF ou imagem (JPG, PNG ou WEBP), até {n} MB por arquivo: contrato, CNH, comprovante, documento do carro. Fica guardado no banco da Track Go, que só quem tem login liberado vê.',
     semAnexos: 'Nenhum arquivo anexado.',
     fa_arquivo: 'Arquivo',
     fa_nome: 'Nome do anexo',
@@ -2132,7 +2269,7 @@ body { font-size: 15.5px; -webkit-font-smoothing: antialiased; }
       { id: 'cl1', nome: 'Rogério Batista Fontes', cpf: '529.982.247-25', cnhNumero: '04718263950', cnhCategoria: 'B', cnhValidade: dia(400),
         endereco: endereco(120), fone: '(31) 90000-0001', email: 'teste@teste.com',
         antecedentes: { ok: true, data: dia(-46), obs: 'Nada consta (exemplo)' },
-        unidade: 'u8', entrega: dia(-45), devolucao: '', diaVenc: semana(0), valorSemanal: 65000 },
+        unidade: 'u8', entrega: dia(-45), devolucao: '', diaVenc: semana(0), valorSemanal: 65000, caucao: 130000, caucaoData: dia(-45) },
       { id: 'cl2', nome: 'Simone Arantes Lacerda', cpf: '111.444.777-35', cnhNumero: '15829374061', cnhCategoria: 'AB', cnhValidade: dia(200),
         endereco: endereco(345), fone: '(31) 90000-0002', email: 'teste@teste.com',
         antecedentes: { ok: true, data: dia(-21), obs: '' },
@@ -2616,6 +2753,16 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
 
 </script>
 <script>
+/* Logo da Track Go (recortado do arquivo enviado pelo cliente em 24/11/2026). Não redesenhar: é a imagem oficial.
+   escuro = para fundo escuro (letras brancas); claro = para fundo claro (letras grafite). */
+window.LOGO_MARCA = {
+  escuro: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAbYAAACGCAMAAACG2l9bAAAA/1BMVEX2qWH5y6DzhyT60Kr2qGD85M7ziir6zqbzghv86df4vIb4u4L85M73rmz4vIb5yJr//wD+/v7ydgXxcwDxcwD+/v71mkfxdADziirzgRr0kznziSf2o1b+/v7xdQL1m0j+/v32o1f0kjf2q2b2qmX+/Przghvziyv3s3T+/fz0kzn1mkf3s3TziinxdgX++vf1mkb0kznziin2o1f++vf2rGf5xZX3s3X4vITyew71mkbydgX2o1b5w5L4vIX0kjkAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABskCBqAAAAQHRSTlNkoFtfIGQeH5YZZ8eS6SDMAPz5FCoQz03V6tLnzcxssLay5bLLb9iwspCvkcqPi0/nkHGPMI+QkbLUc6/mc45x/mn/VwAAIwVJREFUeNrtXYla27oSdkLY2tM2RfIS27FxEpKQjSyEAGV5/7e6M5Jsy7a8QSjQi75zb0PiVb9mNPto7a/xCYf2NQVfsH2NL9i+xhdsX7B9jS/YvsYXbF+wfY0v2L7GPwMbESP5ra7rhUfHI/yashH+a5qet1gs/mTHAofneZTGZ4SX0fNumx7iQDz3i9rUQJXAzace/zVNcz3dBDB83zAM2+71eo5jieGIYdtLA4frunDcZPW8hvP4JRTLp3zNfcGmhCmmBTVuQFYn8wniBEBZMUidzhkb4b/JvzpsDK3hEI5lZ4xGSIWmyRZCARzvjtQHhS255pUUIKjrfrMd3wL1cJjOXjc6ACUQoxVsVk1OfTRzb11m04JbfsGWh5Me/oJ0gMxwPfV94IHW8LVYKYYDJNizbWNy4pnIgNXLStCj/gVb4e7PNzHTW01tm/HCNwAsQXvAPIHtTuaLlNQi8+cvJhnNRs7X1GyuYP8CAjv7S6PT4bukC9hxuqOk/aUAZET6jOjPeREyReCJxqguhTGZY2ilti/4asjEkYpXwGFZtu1zlSG5rsj/rySZZjccNSHPUVODObNA4HPOqs8zEw2BlzJBH9UB/J8Y4pPBJU8Y1WDsOD3D8D1TABcqePCEX0yyLYkeuJFNg8D1q5HW3R0iZfDhT+bzOWjUnimYG9uchG5G4wEKW3N9Mh+NJnDSsmf1HFwfjhpClDKt0ckJXomgmCS23C/YhJ6GE9qcw0xaSGZlgFlMdjBc35/CHiSAiiwgskIu8+KEoYUyccd8nk43/bHV61l5OyiyWMOfmx9nm/soIgmqzyOGWKeYG8LaHyInnK7WnoxV6yh50eODg+OWQOtUv75WiewcXL6XolVsNMpfMXBX4Jb0g2jd2vsJ+G09YozU3Fq9Yt2ZIYYbzea+GfM9kmucEt/+DO8mDmsdHh6eHqeRkwybHoiuuAWiJBNKNKiRwwcAzliZH0K01N5/N/NOfNewiwADCgOboj1aMPrKSnWqEbNKQpLYJGFuHR60EqZprnZoIxSJwv0uEl06lv0hSE57X9BMD1Z20UYGDNGA7csTdqek/nsEE3501GppMNbr5/spjhUbKJ3M502PSSjJXS5lQzsA+js8IGnOCc/2DGS3TAsqAJx7/+4E954KANV2fdcu0qRBFPiz4DuY4hLHx7CBHTw+3jzBAAcAGPfdSMIX1n4YAzYaNzAev307Shs+lUwW/mb0aS6yT+cYwa75f6EACGYVWWVhsXp/kAflKGHO0Gk0Hg9aNZhRyAm1b4+AT6MhHAMKsR706BPwvwki5CfzZQELqbHT0my4pfVdy0pfJcWt9X+U2mQZnJrTvqMEDU0TS2MCu1hd819C6Mcd01vMQS9bWgqFDN026H3zp2sz3PYEeloDxjcN4JQeGIhu4gyTuvn4OcEp/yXYZE9HjJk3RUE/byNbrU0aixIvuJ2swDGvQcB45zAFHvOdWsulYY8Y3Ums+/b7uB9oTSq4g7ACzIGfS5cw/MB8vx1OeytjY9JgHtmEzMDIqmYdtETYYIvwQvFaCOyvM3XGGJrajjkQlFwZFovf32qx1ELNtR9sbzUSe9rAHADrzTDiC4C/fGC+m0SpvZGBmCRsriIEw1wZlmLWwN4xmWhHVHgo9+NNli3THAsPfQlq1gz6u8XMIBGtmpskJlzH9EZ2J7pAxxrcR8eQfwE2pfHK3LqWkyYz0GB9Zqr9O8Yzbz6xlXaYO9xWl+7cjIKKskI+s4WN4PzwApa/DWWafwC2dCAWGv/MP+CVllc68kUUCkIL1V9T7725YYOcolY4LOPHyiQpUVKSN1Cdmxvh6utY/ibE7bPDluZU+KZgB0lLjADZSuHKelN3eUQyC9+we2r1wzIGfRSK9BShRawSKS4Mi4Cj799FLtHezOIYLXDPT/IlMDO4wbRpJh3HtDhwas/AUbodDwxH7WKz0WacUlpoLFkhrx2Fy9Bx1/SfgU3nkiAu7CmoTh1ZLwNfi0mzW+BfidOI3ZxINCDUKgkO+Lc9arWJtIySFjE4dx3KwxboAf+QlYQtac+W9zN0fUzvhbhWrKbuH7/0kmASiu9aee6G2TRB/+nnJGZgszfrGNN3YJPa/qYlOUcm7N0P0v5hMQk7jgPWU0F1ckD3W5BdmpaFnO8/5ETvwfN6NNL5k946zirnow43UXp/Hzdt/1HFjAGBiuPaAjQQ823j6T6MFKgcuvWmqknoFDD9PMfs8GHFH7gVwxYnDcBLNm1Gq5b79zMC3sBKwrjjNDRJoGrmch9Vweb1V8TJxAOI9QNPOzfycLODMPZHwcxPCfHsIWOT3r8AG0Enmi0cnOCPnpsFUv47R/cy3DxDrcZ1hnafWybTy0oYz0AVGDKt+69zyf3DRrUxSPwWh417y0j9HIC9U2E6lkSP1QGQ59XhEB3LvT3iAFFZNMFtQKgC+J7O5HPCJgK/mfUoFIzB5/V4RD5gQK/SdtJo5DBKZwlmnDaEEKlOhKgjOoaoE4dG2jnJ27+LwvQIk6wz5tx0wp90+j5g09l/LWQ3I0MkIP3R6EeJl6+GW55/3Zqgf0aZqoFvR0y3c9YziV6YKlQCW1uR5kjentowEgpQM32DObGM6TPXzT4FaMJUmZuJs5zAr0fK045wwufDztIjukpRUMGmv2QLyACu7Sv+ipjbgQv+jx56HUlBWuGHxI3QP4lwvyhSy0ETQa7awva3pWWYwhmuF6YTKyJW4m/0Wrkt2r4kfhsDbgb9bSiCfB7QhHlgDi7whzh6iCUK4Mdg3FDzjRC2uREAbDRBbXnBtEkik9yR+l8SSYhkLwBrMXjsJ/7KpJL1td3+TLgxmwlVjpxXCbUA2h9j6Elp5YAQJJILmxxUIQXw7hW26N7gCZ75RjD9q26Yt03eIqQd5o6SXA4WokC3T2nLnmLEskpmi5OMbSyvJBzRsslSr/b6ZfrYuB1PPVqWs/7BR+62pOftO+G7Uu0xfutUCFIe+aZwxhwE05v4YaAni/HkWUTB1FTQgva6XY2Qp13jphkGrGXSZovkWZiM0/anHiK0q9WKQ0B5dPyEVdlgw4k+4OAfbDdYSQIm0thKlHnoZAIQbSPYMDvTzz3BBve7b9w+87j8iDv//eoQp5BSA+MaR8mh11cXueOKHXApjQt+UpQjcHp+3u2ew+iG/3GwwjBcwgPzHqyy+g2OYUaCC5ppJkurIDTbsh4mEsmR18J2cPNkpvWz39UHvPR56UHd7mXRM1ykDs83e16dd8seB2ZGPkbcOTJdXGSeLSkzCterU5oBCzZqGgqchIFWmpzcWUfTjM/yCthODw9onJIebt41YLuoCnI+cNfpQ/PIrQwzGIeIjmoNCNguFctOXhyA2vSHVaVQimXPaSSJNH2rSqbzwOOyCSe3F8PWOj5O2tC4IeG8BmxAARWP7OY9hWopKGjtstrjpA5M3rVbvJgwEtOtWB3A8nkgwxEibVdC7cwwTIncXqEAHFWax0Ie2a1xrGp0KxGmXv0W+Usgc/xVWoBvVkXtDHikyDkw53bFkxzbx5P0V8KmHoc1YLuuA7LybpeV8L2s/DgpnisBn2HG3XTwtOkZdkXUHHvNXAaI2qhqwZWOM6BxdPveYOPqze9aPPKiFmmWiiNqdnpZY2Gcq5BR3em8HU8hPwTCCp2KCDgG0A2D7dm3qleXsp/3AFvCQkNEbMbBG/FINblV2gUv62yfOfz2XMGKhekiCm2oXu7GMcb8JHPhnNUYdyeEyyP6HqwkIl6esjTNOsR21T79/SrYKh13Uf1x0gcXb2sp2DbVUesZa26ENi1lhl8eq+2M9gGbcOlDKZHRyLCN/0hN2OpJnb9TCnYuqaY8gbWu31Vc6fRafYsQNjELszRLC2sTRfWkRKmiOzB7cNMtPbEyiPZYsRW0pWSLLnZ87ll5MWyx1E+3mHyNj3NRU/o/r7cR/q7K/FLqWq29UyVHXuTsssmYS99I5hFBWHNqTNhgn1aU+8WXMiwA2fKElQXm42QxspOKe8cg0X21lwbnCA4ZBWRznVYeqSkDW5D862lqQpjJSPq9ZM+6qgTvlcrqkhzn7Fbd68xKyN/WMoN6D72E8OCeUFIwGKHSSQIUdzLy5BJGLJsuQY7DgEQyhVYrLjRd+wOkXnHlO4UVpUQU7BbvXcWSZC7ZnBYdVWgnaytuWKatidXrJ1LAHubKxK+wPLYob2MmS7F8X6V9ezC7SyehpNeitqQ/iJep0jYjqHrbc+7CiMI/WZI8L3nfYutGCtWr5M5WLFrkyCOXJca6zAMdl7Dg0HNjPsio8SD0ArmbQx3IkDiWlim9ALwsYUCxVnVhg+uxAuD3m02/34eE9H5fLh4BzNzMJjqVSIKXJYLi+cu2rMvcJ7goecnMDS9KlMfI7enLLNKay1aouLhQysONEV/SSaPIISvcfshGaUIVtKvAFjHCIw0KtmDZh1scYxh9HAPw441Cw+nw7q4JQ14vxxclK71bok0XbG0pxPOm9qKKfSyfR16WsVgx05TKiXJDQxGgR4hscGe8MrFvddwMU72GLAOzJ0clPUgZWXmw6Qd8IF5QPAfLI0EiYdJZDlmiLmZlsoKOt78aN43/DmLcunXUrut2DR56lfopbwF0y81jkqqQvOpxlqKv8oJJTmT9yxox06Ee1YFLhIfE/pJEos/wmWb1K0IT6nhHzhDRymLzSaZgRfg3/N9RMwTyyDRT3vZaNqd2nd/TJNDNuVM9YktdpYK+ryK2Dk+bwrRMKSyEy/T8X7OFUDeT5n0zk6KJPDKhjjt9WicquSRTJhR/0kFOlyX7SpmwkD/nmV9yYFMBr1fkkRm14Twv0ALkdFn/EllTug68aDYAxZlV/jKWS8dZwgcoXzNr/IRJ2yZEe58oUvF4gkG0Huz7KsHkyp4y6shQES+ItNaqKpBc1yK260JR5byCTapbtjovXuioJXQkExs4QIV4SVdYfIZ1h+DGEizAgkn6DZyzhFXFWmfjXpFHWsk4BtJ+GWxEEdMjcdDjVrycT0smrVv881Xu6Rfd1H5znAPbdS0xstisfVWkGNkJ6d+MYPPtjLmRAbtFTTpI7FomUWqDMmyWQfcVuaXnfAZMX6e0XeaL7goiUG+D53UEkmIeWTQD1LNks9YklDnA16227zNdKWEMc4J0eKwKtkVt2PRK3ycq+aff+7iQJclGrW7htKmo8Ep5cD0eeVnbsx6G8Pgyj7TmYegh3RhqX5qDMkCQgG3DCuqlEs9Ic5DQ2rzXUZucMi/JtmZUJg6Z5mXJzvC7nounWKa/Vh19lW/yqklshcuZ0AQrNCgRnkzTGMa1luXp38Cvc/k7eyDkciJX3ATNLiFHXibEC+2llf/C4tAo1a5X083JKHiKE+q6dQSS6vE/F2pBRcVR6/HI698vojZ4WU/e2jqTKNxjkZMRbmAFSz9BR0EUZE7ifFWS2DM7zmH9qOQIrAg2s7lYQAOECSal9Fj7NNsfaxFs1+n31l/oT5Gm/DhfUFGRdh1rZMkDFc7MVGaFPeBkor1DTgHojoG2/YRhS1kgg5D7BGzWMcmDrdXKU695SgHUkIY+B9y2hTZJKJl/h4MJSX4wjvOAzktMIC9kkb+r69UXe+ORheSWlBs6IkgEZy4nyNVaYd04GTa0fpBsvioNEoZOm6hhU5Vkx6Yim+nUx/LRmOslmnGxxpFh/x6mlcBTBN+bUQXUMqXtah8b29UlBoCz4HAFnN298cgi1KHGhWQi6bCSCZzYDlkZPSuqPNqJFQRKEqoBnkTCYPx4mAnby3LRbufC1jpmdsjDw//++6/Bxu2YW42jTBBErodssdeLW0viGO8ikxk5rGNFLg+DqxfM0301j2xXjq5FBDoJw1a4uV/whkiBP7oLgxTCCEmwhllpa1g6863dXshmZCdtatbi6uxYDv/45/HPVqt1dESO4ua6ysGsbGs2WOH9XZO+zIpclT1d1dkLXyNHdrM73XVu/FMSAcnMHwkC3l3YtQMZ4jMysWUSEaKIIkiamq2AFlBbxlSczm5MVZBOdOWVXIN7ilzsXoXhPrWwrs8jMyBXlErA2mEn7JGESMnBItd0wfZ+JzIHp41WLgnz8aUggmQAH9ojS/Pb8uIflN3y5K6daliuXkZs6USbbi3YXmH8/92u4GoLYZvICAznEWzgAQhtX/IR9g5tjQmFjPms9UwkwS6hoQ9o1ZT7sqIi6eRL6eiShXqqNpAUbyeXtRSG03LYTgsNZtXIjSbDeKwJjWGLooNkgdDQELZE0LkVqnqxqQk56yxBbCvSrgxbwhyg55RCLWU551WjDQrnqY5+flzXr32ZNcQdVyI32No6WcsW4d5tHl1PV1ZKsiCJkzCyPIo14InILE/RKCS2ijbJXIxUNFlLILnM44KXCbKoqeid14r9UZF5hrpVE0BNI5UjGu76sTsysGTJgsVHJmDrWKz6H00kNybaW3TsKdljpYSoJgSpHASSb/gtzgutkyyA1q1u1s0ZB0aen8cxmRe53ogqSgBIJJl0QxrXo2chiZKoyRUEmoQNcDtJFdaYGIl45J6iXqVWq+yDNEAVBw1gsZg377XHg595LOeiuqft1RrbC3JCrnP9PhcVfG4Jp42oVA4aLlgm3IC3szXkcsxDxg+hDmKqbQvE4rhR71vfiMqnyp7XagUuEnYtmul/BuPEspm1BFqNBOMbaT3Uyri4OM4lqfOXGZ5rwdYtkDorkFsIW0eOI8cwRPhHJAAkpI85c1pHsEVJGmhN4SYn6E88TIX+WzwUrBS241PWiA4GdNR62u122+1ms/n27dtjPL59u7uLGggawTr02aRTN6uH/hxnEnByJvCSmbQSFQ/O62fyxyBd59DUVWl+McDmZFwz+cnzHZvZQyAY1kkdirXQ8zN0ForS50UKwFELetohdqIfGrdu9TItRNlOq5YTryuH9hxn1veV8ooXVWTXF6ci/i7aUBWSpGsrnWpqK7JIByWDGmlt2GegThWgbD80b77CjtiYx9O5k9fDUna8lrypXoDq5e9yma5bbgnuVmar3Qw6l7n6pWrFEDKzqyOw9LhmQPtOjRTSE05rNYo3pa1ZkQ8HEAx41pbQRmjOwr+sFSKuVN2uq1iZMmB0q8qcuYKtygmX0tLR21Y58xcK+IrooIxMUpJn/5JSaaourIDc/RNzjXIHqSzpvFBpyxdKKnksMwddv8x62S22wp1njFvmwKlaHcFeCQQwHrZTLfHUdqmyxHYNvU3X4/p5R98OJuiWYKMvSzovVNrUUkAGyYuqsFXyF5yXraPzst2N0KlRkdyCiG5gw3EtqxJo02Tv1Feq28ldT+71WGZFLgmPzFiULqtZqVST263kgS1eR91ScqOBXYF0YDfZRFWz4KRV4Jbyx54dxqXvBTaSzkWQuW89pS1j2k0t765eMahDyZovXskjTyvo3PD+/g/UXztFZGNB/8440B7nbDN2ispsdbBR2orGSSAvhk3uPinvdol97/pc2I5YKbhsIaWr6He0LKnmXzo/KiYXXq/AGJzI65W47nnuECXYzrux3Sv7wHBh+XkUZdvQWu9jr+icigdYWdDlNSGJvPCbtm05OQ2ssUy4NRUZFeG+9GG63H/uIdOOuQqi8p1xm3aXf+xvmumitsw4CMX33aUIzHHsKMLDNh5cd+KZxeX4v2B7dQetqDRLfrXW3EZpc58VUIgMktPp9Nmk5dWLv2DbQ+OzsEt4JvStcP7DYsyZ01KxA6pK59re+4D9v8EmNp9KTeNeEEWgbgvxRW3vNPSKjZSiOiZfsH2W8tn5daa1ffb7/L+jlgoToOfsIqSkF6dU0nrPsH2allFv1qK6xgSQbOe+nGbIoTxDCohDe5fXFesNisDrcdsVkfYQfWJxa+KbNtFZDiD7yD6xv0Q/vIQwTnj0k85DqFRBZ6n2JJEMf9yOCnvqok48CXvTwf15bTn8ltJj9i0Ps1ITWCxE4hWOqJ4pVUIKmgK236uBcyXuzWZYYgYcRJ0LT4ScChbBIYqKNx4JyKIQ4J8RM2IwimmOZkbPWz7xco/kdFXspygbyaOroMyBNv51wM4vbKUndVjU24Toe+0Dqf3V/jHponmcJCL/gc6pJWU8IgI2PQzQFv0+JC1WTCHHQVrXcSEkPc2Pwtb1et4kHh1JvyBkoW6m/RqvSUtvk7jxJdGTFWYIiRdcW1LjFEvoZTuN9g5tf4iU8EqSRgT0JyRBM8Nk6LAXpFS4LdHjh8TfyEprtDqoqvBbGD8cHa5LinB4Vb7ThMZz7QZbUbNyL6JtUAj6kajyQ6LrCjOwGZ0eXjE7L5+ESYYldGhMQrj+PWaNi6wIENXHcGslTQ48EyjGDYgBfe6mmEWcKPZzeB92dERGwpDIJjPdBiza6cTUq7oK8f2U8jtyLiBuJQ6JYWOParIHC80mcBYlryW3d4NNTNBmPNZanMFRqv367ruD2ZbtT2Bt3d1+n7k/xk3CZ2Q3mI35zqX1BzMc43sqaHTbHxjG4FbjNf/chx9gkd08HYWNlpe9wU7aU1uzhwE/n3fouvn1a9afzfrfb7iE8zSb3fAEDNoPxqbWGMOx379//6URAll/DLu1+wDPensAFzBnt1uGmjb78USJNvjRiPZazx8MBrPv4wMOGz6nO/t12P5oDZyrUxtAYw78gPI9m5pjSID88WDbk8BkTT9dI5jNBm4wu2Er+L5vGDMuY94HBswymNgH39lPEEsKNnjb6O8OWJA91BqGzofMYcJrjnUwsT2+s+Y7cC2orzgYm5iUC5ea9XF6Nc6M1wP3ln/a9CGacNofBG4wnrGjb/t9SP6jEMMKUamG0Qd858ZkJEoQu9CWdWu738Jo8/kD9PIaQGLn0xM+6JgleWJgaXF76Y8Fm5xxxbiL6Rp9LnJArxfX9efgz7Aw7KJNp1BodAKl2GC5Y8aj6c0gEdn12GSCh+t+7S0mhu2OWZ96w9h40KW9P77FXQRg+wPVhifQoZItjjl6R35IetCT3RktvPUWFkIfONpJzxmyREsRXgEhIsZ3lmXRHPThgIFrLDxRE87suxBeQAfwlCemuZj0d4RMbGvBYBu7EOdDx1DEus1TE08g+TYwsX/8YIaQA/oecP7t/ceCLb9GVxTGkKgXDFM75eoaePcxTAm9GdijlXoDy2K91umW7VImrNKF9TBnsLl2j28TSxta9sAJACfS68qFGvvEDNjsQYQ+hNC0r9skmPTvHUOLn3FsneEeisE4WGsVakn/IdF+hnsVUB+2iTV/TG5Z0m6UlEE2rjHBKj4Gy5Sn5g3W9HGRP3DYENKlwdJ6gWGMLIws4JcIIPp/uDT55kfLKtEVlzvT3k5WTH4NS7X5fH+vadvd09MTKtQ4P3MbfO9s6148YAlY9kauBSGFvmH9Ebo0GwtAzVzaImfFtvg0A2kuTPeOJcki8S4x1kmb+VOTJa7YLDNpYwyaPzu2Fj/ReHjGrk1PWEgbJJwtYtSQ9IHyN6wMwgPsVSaUd4+yKzauC/Ti2gPBf/GJXfcWYaDrmRuwZmATIdn4FjIOtsU5wwGlDz1nZPIFnEiAoco83oJSddpeQTvCBHCMRD883O742G63UKZ3PA7dvRNsrgsLj3PGiS2aK7XvHGdCuEVia0AMn2FEse9Migafr2lakH2CWbRLexQWczEWUFNgSVuMeM0eBm1uA/gS1rjnPkwJK2Ywou1OWLUFYYe4YMaayMJZBljIp3cHTzcIwph4+twH/kogwgpSdOnKOeuNsNjwllXLAsA0174Nkw9/Ql3y0Y5N9tR14YZAj7zQIF837KWoeeaMgWc6nZ7R16ikwN6M+6GDdDpnqfBYeNKkpJDc9sskSQsT9lut458H+ADPMKZirFY8AwUYijtA2Bh1GFEk4J0zXBC+1ncubBt21EGJfQfB7AuAjeUx0JOewWFrT/Fr17Eps3tRc4j9Y/o2kKDpzQcDH4+2hw6ETd9ZcW77xhjecdhOeu49aRp3UPZx4g5gnzwS8Y+3eHvDeoC9FOqOny1/jMczqJeDrAAXhm9rAjZkGT1kwJjLZswg9Nt3sa0GbpEeCFW8vgylnd4Ozp4sWZzCloSCJrkdD9hyHqBEFA4QWv+LB6OENxZJSMXBWQe+F1e/hhaU0MFWlYTeug+maRt+yEkAtWfY+WAR/uk94Io/cWA62RWmRuAB7VjAyVAiXCwxGcy1HGsAfHSE8fN03Tu7g1PvgPOGsK1sDlubjoB2iGY7k/UTpHsdCrsK3OLWss0Tw8D2eMR1nMX84HGntYBQXcRzajn3sak3sJb3jNlN7DFLTxtwGwE1/YlPmfWUaB3rhqkqz9A5Yeg2IxuBtt2wwAQtHlCo4uiIFlby1N5KYixxI/GG3QubhZUhbiA3jrgaC1gCydiCDvmjByhtD6AaqoWSo4MrHrllc4CSYN9acu2Z+j3osWX6wG9nhg3SISuU5HSch8EYhMlRCJtr9RYMnKZhQM/sreN4VJTiEXYNenPnLBgrgON+DMWuC+SpIZR0ZXfm3B6CTzheDj3eMt7+DocZ1oxfDZgxvgkPp3SMUP2E1jbWlqQ7BxNFRFy+Iv5OCoCYnYnNi+bDt82BvWQvv4CUHqidaCOM+FOjiTGkwB7dH4HRWwJMsIMFXJCcgKwA4rzFyjiilLeEaXp2e38omQaWjaf3oZsLAD6DEKlJDJvFRBY433iGQ5w7k8S2MmbaOjhz7kDKBCSJ+WBZod2E7Ax8YuiLaLCW1V4fSxAuUdAAMC0Lrmb2rCC0lgQWbKus7JkVbODJWIk507qztIy9SC3JfRy9LTL9ofxtG9MNyC03x23Qdnr2aLPxDWjfAzsf8Ds7eP722Bj3FyAaDIHPAUVZNqg/nuMEIPGMAyCkO5jLpgEBa5CQ1xiDfgUbz8BewAT3bciKbh+MbYud6VmOLZZMy3asUeMp8B9QWAEaPXO2h6P55ukgfsgWlsu1GTGt7J41fdr0R9MDhG2CInww6bm7x8fdwG2A/GI5y9GTdusCs6ZkbVnBzW4X7A5RYez0XA1u5Zw1sHiy2/92dbUFrYMkfag6lsQmGWv7R7SSILkMWFhh0AcjFQVTVp+FF86e2Uqdz0LR0/Pdmcff5NvN7T3YrlysIuX3b280tq6bYzRtwVY/RlYJyXj4pQY5lZRClXtRgjsYNzRu0r1HiwpGJAYzvK83wPBUeIzxreRVCFB1Z0SzA6HBtrFrBRAMmLYYP7u0sIoV2KmQN0/dJdSyMnwf/4DmFhj1CE+Dv8zw2pjky0xfkB0If/Qb2mvdy+/nb0MuNQ6CiQ8T9IQN1+kazEeDYMVtwPDrFOt9+WD9GN8yqwLC1mhsTej8wQpabUwiTLvmZgyMsL9m09zgsCFiJmD3yI35dNNoHHAHigZ06htw4zVDUbsdg6YFOShbeTaD/k7jO863xnjg26DE7J6p2Wg8cqqYY0t6Hm4M6Mx/wJOvmXL39LSFxxsFfbakwKgCCwpegr2vj38MtiYln9UmGVvas3WhiOR8IXJ7gVS+XdSBhIrDxKXEcTx6kUbFlEhCCkjs/jQd05jsxyQ1Xwh5GRH3E9shTUkTVD45VKLj921/Vth04QWj2flUFavR0/pF2muVno0wICOefHEVPXSiJYMTUoGooUMwbESfWGHJQ65jJ7cU6xD9pah89frZez/YlDVqJElTaV3VMwED+aVuZFeWnsrRq3K2/Ht2unXVe+iJyBU9xG3/s/eu1KbnVxnSS0LY9Hoxo3rOEXqZET4X1gT46ksml0iVZfIp9rbKFpfaMZmEkJKw33biyqJ6ql738WiCBSfrucidCtPPTz6tJJmJG8zwtqxVvGIDnrz9I6fEIkkHDlXq7pPYEElKZSYsPJXIy6O6TvbRYVPKbXWiK9Sw5k12ab+eXNtqUVRyflvEF/UM+gyw5UUNVn8tmdW9pjmuOv2paIZfskf9A5LkR91J3zz4XJn49AXbC2mBvC1qbV1Own61PPk/Qxc8fGw21bQAAAAASUVORK5CYII=',
+  claro: 'data:image/png;base64,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',
+  proporcao: 3.2687
+};
+
+</script>
+<script>
 /* Mimizinho: telas do cliente e da locadora. Um único estado salvo no aparelho alimenta as duas vistas,
    então a reserva feita de um lado aparece no outro na hora. */
 (function () {
@@ -2680,14 +2827,18 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
         && L.CATEGORIAS_CNH.includes(c.cnhCategoria) && dataOk(c.cnhValidade) && txt(c.endereco, 160) && txt(c.fone, 20) && txt(c.email, 120)
         && typeof c.antecedentes.ok === 'boolean' && dataOuVazio(c.antecedentes.data) && txt(c.antecedentes.obs, 200)
         && (c.unidade === '' || frota.some((u) => u.id === c.unidade)) && dataOuVazio(c.entrega) && dataOuVazio(c.devolucao)
-        && (c.diaVenc === null || (int(c.diaVenc) && c.diaVenc >= 0 && c.diaVenc <= 6)) && int(c.valorSemanal) && c.valorSemanal >= 0;
+        && (c.diaVenc === null || (int(c.diaVenc) && c.diaVenc >= 0 && c.diaVenc <= 6)) && int(c.valorSemanal) && c.valorSemanal >= 0
+        && (c.caucao === undefined || (int(c.caucao) && c.caucao >= 0)) && (c.caucaoData === undefined || dataOuVazio(c.caucaoData))
+        && (c.caucaoAcerto === undefined || c.caucaoAcerto === null || (dataOk(c.caucaoAcerto.data) && int(c.caucaoAcerto.descontado)
+          && c.caucaoAcerto.descontado >= 0 && int(c.caucaoAcerto.devolvido) && c.caucaoAcerto.devolvido >= 0 && txt(c.caucaoAcerto.motivo, 200)));
       const recebOk = (p) => /^pg\d+$/.test(p.id) && /^cl\d+$/.test(p.cliente) && typeof p.unidade === 'string'
         && dataOk(p.venc) && dataOk(p.data) && int(p.valor) && p.valor >= 0;
       const anexoOk = (a) => /^ax\d+$/.test(a.id) && /^(cl|u)\d+$/.test(a.dono) && txt(a.nome, 60) && L.TIPOS_ANEXO.includes(a.tipo)
         && int(a.tamanho) && a.tamanho >= 0 && dataOk(a.data);
       if (!s.clientes.every(clienteOk) || !s.recebimentos.every(recebOk) || !s.anexos.every(anexoOk)) return false;
       const manutOk = (m) => /^mt\d+$/.test(m.id) && frota.some((u) => u.id === m.unidade) && L.TIPOS_MANUTENCAO.includes(m.tipo)
-        && dataOk(m.data) && int(m.km) && int(m.valor) && typeof m.obs === 'string' && m.obs.length <= 200;
+        && dataOk(m.data) && int(m.km) && int(m.valor) && typeof m.obs === 'string' && m.obs.length <= 200
+        && (m.filtro === undefined || m.filtro === '' || L.FILTROS.includes(m.filtro));
       if (!s.unidades.every(unidadeOk) || !s.removidos.every(unidadeOk) || !s.manutencoes.every(manutOk)) return false;
       const custoOk = (c) => /^cu\d+$/.test(c.id) && frota.some((u) => u.id === c.unidade) && L.TIPOS_CUSTO.includes(c.tipo)
         && dataOk(c.data) && int(c.valor) && c.valor >= 0 && typeof c.obs === 'string' && c.obs.length <= 120;
@@ -2903,11 +3054,19 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     return `<button class="fino tema" data-acao="tema" aria-label="${esc(rotulo)}" title="${esc(rotulo)}">${noite ? ICONE_SOL : ICONE_LUA}</button>`;
   }
 
+  // logo da locadora (js/marca.js): versão "claro" (TRACK grafite) no modo dia, "escuro" (TRACK branco) no modo noite.
+  // Sem o arquivo do logo, cai no nome escrito, pra nunca ficar sem marca.
+  function logoMarca(versao) {
+    const L = window.LOGO_MARCA;
+    if (!L || !L[versao]) return `<span class="marca-nome">${esc(D.CONFIG.marca)}</span>`;
+    return `<img class="marca-logo" src="${L[versao]}" alt="${esc(D.CONFIG.marca)}">`;
+  }
+
   /* ---------- barra de cima ---------- */
   function topo() {
     const vistas = [['cliente', 'vistaCliente'], ['locadora', 'vistaLocadora'], ['ambos', 'vistaAmbos']];
     return `<header class="topo gut">
-      <span class="marca"><svg viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="13" fill="none" stroke="currentColor" stroke-width="3.4"/><circle cx="16" cy="16" r="3.6" fill="currentColor"/><path d="M4 14.5C10 11 22 11 28 14.5M14.6 19L9 27M17.4 19L23 27" stroke="currentColor" stroke-width="3.4" fill="none"/></svg><span class="marca-nome">${esc(D.CONFIG.marca)}</span></span>
+      <span class="marca">${logoMarca(temaAtual() === 'dark' ? 'escuro' : 'claro')}</span>
       ${D.CONFIG.ladoCliente ? `<div class="vistas" role="group">
         ${vistas.map(([id, k]) => `<button class="vista${id === 'ambos' ? ' so-largo' : ''}" data-acao="modo" data-x="${id}" aria-pressed="${UI.modo === id}">${t(k)}</button>`).join('')}
       </div>` : ''}
@@ -3346,10 +3505,11 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     const k = L.indicadores(E, hojeTxt());
     if (!D.CONFIG.reservas) {
       // sem reserva pelo app: "alugado" vem do cliente semanal com carro (e da situação do carro)
-      const alugados = E.unidades.filter((u) => L.estadoCarro(E, u, hojeData()) === 'alugado').length;
+      const alugados = E.unidades.filter((u) => L.estadoCarro(E, u, hojeData()) === 'alugado').length, guardado = L.caucoesGuardadas(E.clientes);
       return `<div class="kpis">
       <div class="kpi"><small>${t('kpiNaRua')}</small><b>${alugados} <i>${t('kpiDeFrota', { n: k.frota })}</i></b></div>
       <div class="kpi"><small>${t('kpiParados')}</small><b>${k.vistoria} / ${k.manutencao}</b></div>
+      ${guardado ? `<div class="kpi"><small>${t('kpiCaucoes')}</small><b>${esc(moeda(guardado))}</b></div>` : ''}
     </div>`;
     }
     return `<div class="kpis">
@@ -3480,7 +3640,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   function trocasDaFrota() {
     const hoje = hojeData();
     return E.unidades.map((u) => {
-      const oleo = L.situacaoTroca(u, E.manutencoes, 'oleo', hoje), filtro = L.situacaoTroca(u, E.manutencoes, 'filtro', hoje);
+      const oleo = L.situacaoTroca(u, E.manutencoes, 'oleo', hoje), filtro = L.situacaoFiltros(u, E.manutencoes, hoje);
       return { u, oleo, filtro, pior: Math.min(PESO_TROCA[oleo.estado], PESO_TROCA[filtro.estado]) };
     });
   }
@@ -3500,14 +3660,33 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     </div>`;
   }
 
+  // filtros: uma linha por filtro já trocado (cada um conta do seu último registro) e um intervalo só pro carro
+  function blocoFiltros(u, f) {
+    if (f.linhas.length === 1 && f.linhas[0].filtro === null) return blocoTroca(u, 'filtro', f.linhas[0].s);
+    const chave = `${u.id}-filtro`, erro = UI.erroIntervalo[chave], id = `int-filtro-${u.id}`;
+    const linha = ({ filtro, s }) => `<div class="filtro-linha">
+        <div class="troca-topo"><span>${esc(t('filtro_' + filtro))}</span><span class="selo ${SELO_TROCA[s.estado]}">${t('tr_' + s.estado)}</span></div>
+        <small>${esc(t(s.faltam > 0 ? 'trFaltam' : 'trPassou', { p: fmtNum(s.proximaKm), f: fmtNum(Math.abs(s.faltam)) }))}</small>
+        <small>${esc(t('trUltima', { d: dataBR(s.ultimaData) }))}</small></div>`;
+    return `<div class="troca tr-${f.estado}">
+      <div class="troca-topo"><strong>${t('curto_filtro')}</strong><span class="selo ${SELO_TROCA[f.estado]}">${t('tr_' + f.estado)}</span></div>
+      ${f.linhas.map(linha).join('')}
+      <label for="${id}">${t('intervaloFiltro')}</label>
+      <input id="${id}" inputmode="numeric" value="${esc(f.intervalo)}" data-campo="intervalo" data-x="${u.id}" data-y="filtro" aria-invalid="${!!erro}">
+      ${erro ? `<p class="erro" role="alert">${t('erroIntervalo')}</p>` : ''}
+    </div>`;
+  }
+
+  const nomeManut = (r) => (r.tipo === 'filtro' && r.filtro !== undefined ? t('filtro_' + (r.filtro || '')) : t('troca_' + r.tipo));
+
   function cartaoManut({ u, oleo, filtro }) {
     const m = modelo(u.modelo);
     const regs = E.manutencoes.filter((r) => r.unidade === u.id).sort((a, b) => b.data.localeCompare(a.data) || b.km - a.km);
     return `<article class="manut-cartao">
       <div class="manut-cab">${placaHTML(u.placa)}<div><strong>${esc(m.nome)}</strong><small>${esc(t('kmAtual', { n: fmtNum(u.km) }))} · ${esc(u.ano)}</small></div>
         <b class="manut-gasto">${esc(t('gastoCarro', { v: moeda(L.gastoManutencao(E.manutencoes, u.id)) }))}</b></div>
-      <div class="trocas">${blocoTroca(u, 'oleo', oleo)}${blocoTroca(u, 'filtro', filtro)}</div>
-      ${regs.length ? `<ul class="manut-regs">${regs.map((r) => `<li><span><strong>${t('troca_' + r.tipo)}</strong> · ${esc(fmtDataAno.format(L.ms(`${r.data}T00:00`)))} · ${esc(fmtNum(r.km))} km · ${esc(moeda(r.valor))}${r.obs ? `<small>${esc(r.obs)}</small>` : ''}</span>
+      <div class="trocas">${blocoTroca(u, 'oleo', oleo)}${blocoFiltros(u, filtro)}</div>
+      ${regs.length ? `<ul class="manut-regs">${regs.map((r) => `<li><span><strong>${esc(nomeManut(r))}</strong> · ${esc(fmtDataAno.format(L.ms(`${r.data}T00:00`)))} · ${esc(fmtNum(r.km))} km · ${esc(moeda(r.valor))}${r.obs ? `<small>${esc(r.obs)}</small>` : ''}</span>
         <button class="fino" data-acao="apagarManut" data-x="${r.id}">${t(UI.certezaManut === r.id ? 'apagarManutCerteza' : 'apagarManut')}</button></li>`).join('')}</ul>`
         : `<p class="nota">${t('semManutRegistro')}</p>`}
       <button class="botao linha" data-acao="novaManut" data-x="${u.id}">${t('registrarManut')}</button>
@@ -3554,8 +3733,9 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
 
   function contaMargem(mg) {
     const linhas = [
-      [t(mg.reservas === 1 ? 'mgReceitaUma' : 'mgReceita', { n: mg.reservas, d: mg.diarias }), mg.receita - mg.semanal],
+      [t(mg.reservas === 1 ? 'mgReceitaUma' : 'mgReceita', { n: mg.reservas, d: mg.diarias }), mg.receita - mg.semanal - (mg.caucaoRetida || 0)],
       ...(mg.semanal ? [[t('mgSemanal'), mg.semanal]] : []),
+      ...(mg.caucaoRetida ? [[t('mgCaucao'), mg.caucaoRetida]] : []),
       [t('mgManutencao'), -mg.manutencao],
       [t('mgCustos'), -mg.custos],
       ...(mg.ipvaEstimado ? [[t('mgIpvaEstimado'), -mg.ipvaEstimado]] : []),
@@ -3742,6 +3922,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   const clienteId = (id) => E.clientes.find((c) => c.id === id);
   const SELO_LEM = { atrasado: 'pare', hoje: 'atencao', emDias: '' };
   const SELO_CNH = { vencida: 'pare', vence: 'atencao', ok: 'ok' };
+  const SELO_CAUCAO = { guardada: '', acertar: 'atencao', acertada: 'ok' };
   const carroTxt = (id) => { const u = unidade(id); return u ? nomeCarro(u) : t('clCarroRemovido'); };
   const lemPagTxt = (l) => (l.estado === 'atrasado' ? (l.dias === -1 ? t('lem_atrasadoUm') : t('lem_atrasado', { n: -l.dias }))
     : l.estado === 'hoje' ? t('lem_hoje') : l.dias === 1 ? t('lem_amanha') : t('lem_emDias', { n: l.dias }));
@@ -3754,12 +3935,19 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
       .sort((a, b) => a.l.venc.localeCompare(b.l.venc));
     const km = E.clientes.map((c) => { const u = E.unidades.find((x) => x.id === c.unidade); return { c, u, l: L.lembreteKm(c, u, hoje) }; })
       .filter((x) => x.l).sort((a, b) => a.l.dias - b.l.dias);
-    const pendentes = pag.filter((x) => x.l.estado !== 'emDias').length + km.filter((x) => x.l.estado !== 'emDias').length;
-    return { pag, km, pendentes };
+    const cau = E.clientes.map((c) => ({ c, l: L.situacaoCaucao(c, hoje) })).filter((x) => x.l && x.l.estado === 'acertar');
+    const pendentes = pag.filter((x) => x.l.estado !== 'emDias').length + km.filter((x) => x.l.estado !== 'emDias').length + cau.length;
+    return { pag, km, cau, pendentes };
   }
 
   function blocoLembretes() {
-    const { pag, km, pendentes } = lembretes();
+    const { pag, km, cau, pendentes } = lembretes();
+    const itemCau = ({ c, l }) => `<li class="lem lem-hoje">
+        <div class="lem-txt"><strong>${t('lemCaucao')} · ${esc(c.nome)}</strong>
+          <small>${esc(carroTxt(c.unidade))} · ${esc(t('lemCaucaoTxt', { d: dataBR(c.devolucao), v: moeda(l.valor) }))}</small></div>
+        <span class="selo atencao">${t('lemCaucaoSelo')}</span>
+        <button class="botao verde" data-acao="acertarCaucao" data-x="${c.id}">${t('acertarCaucao')}</button>
+      </li>`;
     const itemPag = ({ c, l }) => `<li class="lem lem-${l.estado}">
         <div class="lem-txt"><strong>${t('lemPagamento')} · ${esc(c.nome)}</strong>
           <small>${esc(carroTxt(c.unidade))} · ${esc(t('lemPagTxt', { v: moeda(l.valor), d: dataBR(l.venc) }))}</small>
@@ -3781,12 +3969,12 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     };
     return `<section class="bloco lembretes"><h2 class="rotulo">${pendentes ? esc(t('lembretesN', { n: pendentes })) : t('lembretes')}</h2>
       <p class="nota aviso-lem">${t('lembretesAviso')}</p>
-      ${pag.length || km.length ? `<ul class="lem-lista">${pag.map(itemPag).join('')}${km.map(itemKm).join('')}</ul>` : `<p class="vazio">${t('semLembretes')}</p>`}
+      ${pag.length || km.length || cau.length ? `<ul class="lem-lista">${cau.map(itemCau).join('')}${pag.map(itemPag).join('')}${km.map(itemKm).join('')}</ul>` : `<p class="vazio">${t('semLembretes')}</p>`}
     </section>`;
   }
 
   function cartaoCliente(c) {
-    const hoje = hojeData(), cnh = L.situacaoCnh(c, hoje), pag = L.lembretePagamento(c, E.recebimentos, hoje);
+    const hoje = hojeData(), cnh = L.situacaoCnh(c, hoje), pag = L.lembretePagamento(c, E.recebimentos, hoje), cau = L.situacaoCaucao(c, hoje);
     const pagos = E.recebimentos.filter((p) => p.cliente === c.id).sort((a, b) => b.venc.localeCompare(a.venc)).slice(0, 4);
     const a = c.antecedentes;
     return `<article class="manut-cartao cliente">
@@ -3797,15 +3985,19 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
         <span class="selo ${SELO_CNH[cnh.estado]}">${esc(t('cnh_' + cnh.estado, { n: cnh.dias }))}</span>
         <span class="selo ${a.ok ? 'ok' : 'atencao'}">${esc(a.ok ? t('ant_sim', { d: dataBR(a.data) }) : t('ant_nao'))}</span>
         ${pag ? `<span class="selo ${SELO_LEM[pag.estado]}">${esc(lemPagTxt(pag))}</span>` : ''}
+        ${cau ? `<span class="selo ${SELO_CAUCAO[cau.estado]}">${esc(t('cau_' + cau.estado, { v: moeda(cau.valor), d: cau.data ? dataBR(cau.data) : '' }))}</span>` : ''}
       </div>
       <small>${esc(t('cnhTxt', { c: c.cnhCategoria, d: dataBR(c.cnhValidade) }))} · nº ${esc(c.cnhNumero)}</small>
       ${a.obs ? `<small>${esc(a.obs)}</small>` : ''}
       ${c.unidade ? `<small><strong>${esc(t('clCarro', { c: carroTxt(c.unidade) }))}</strong></small>
         <small>${esc(t('clPeriodo', { e: dataBR(c.entrega), d: c.devolucao ? dataBR(c.devolucao) : t('clSemDevolucao') }))}</small>
         <small>${esc(t('clValor', { v: moeda(c.valorSemanal), d: t('sem_' + c.diaVenc).toLocaleLowerCase(LOCALE) }))}</small>` : `<small>${t('clSemCarro')}</small>`}
+      ${cau && cau.estado === 'acertada' ? `<small>${esc(t('cauAcertadaTxt', { v: moeda(cau.valor), r: moeda(cau.devolvido),
+        x: cau.descontado ? t('cauDescontoTxt', { d: moeda(cau.descontado), m: cau.motivo }) : '' }))}</small>` : ''}
       ${pagos.length ? `<h3 class="rotulo">${t('clPagamentos')}</h3><ul class="manut-regs">${pagos.map((p) => `<li><span>${esc(t('clPagoEm', { v: dataBR(p.venc), r: moeda(p.valor), p: dataBR(p.data) }))}</span>
         <button class="fino" data-acao="apagarPagamento" data-x="${p.id}">${t(UI.certezaPagamento === p.id ? 'apagarManutCerteza' : 'apagarManut')}</button></li>`).join('')}</ul>` : ''}
-      <span class="acoes-linha"><button class="fino" data-acao="editarCliente" data-x="${c.id}">${t('editarCarro')}</button>
+      <span class="acoes-linha">${cau && cau.estado === 'acertar' ? `<button class="botao verde" data-acao="acertarCaucao" data-x="${c.id}">${t('acertarCaucao')}</button>` : ''}
+        <button class="fino" data-acao="editarCliente" data-x="${c.id}">${t('editarCarro')}</button>
         <button class="fino" data-acao="abrirAnexos" data-x="${c.id}">${esc(t('anexosN', { n: anexosDe(c.id).length }))}</button></span>
     </article>`;
   }
@@ -3966,6 +4158,8 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
       ${campoForm('fc', 'cor', 'fc_cor', 'type="text" maxlength="20" autocomplete="off"')}
       ${campoForm('fc', 'renavam', 'fc_renavam', 'type="text" inputmode="numeric" maxlength="13" autocomplete="off" spellcheck="false"', t('fc_renavamAjuda'))}
       ${campoForm('fc', 'km', 'fc_km', 'type="text" inputmode="numeric" maxlength="9" autocomplete="off"')}
+      ${campoForm('fc', 'oleoKm', 'intervaloOleo', 'type="text" inputmode="numeric" maxlength="7" autocomplete="off"')}
+      ${campoForm('fc', 'filtroKm', 'intervaloFiltro', 'type="text" inputmode="numeric" maxlength="7" autocomplete="off"', t('fc_intervalosAjuda'))}
       ${campoForm('fc', 'fipe', 'fc_fipe', 'type="text" inputmode="decimal" maxlength="13" autocomplete="off"', t('fc_fipeAjuda', { a: pctTxt(E.config.aliqLocadora) }))}
       <div class="campo-claro"><label for="fc-foto">${t('fc_foto')}</label>
         ${f.foto ? `<img class="fc-foto" src="${esc(f.foto)}" alt="">` : ''}
@@ -3991,10 +4185,15 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
       <div class="campo-claro"><label for="fm-tipo">${t('fm_tipo')}</label>
         <select id="fm-tipo" data-campo="fm.tipo">${opcoes(tipos, f.tipo)}</select>
         ${e.tipo ? `<p class="erro" role="alert">${t('erroTipoManut')}</p>` : ''}</div>
+      ${f.tipo === 'filtro' ? `<div class="campo-claro"><label for="fm-filtro">${t('fm_filtro')}</label>
+        <select id="fm-filtro" data-campo="fm.filtro" aria-invalid="${!!e.filtro}">${opcoes([['', t('fm_filtroEscolha')], ...L.FILTROS.map((x) => [x, t('filtro_' + x)])], f.filtro || '')}</select>
+        ${e.filtro ? `<p class="erro" role="alert">${t(e.filtro)}</p>` : ''}</div>` : ''}
+      ${f.tipo === 'outra' ? campoForm('fm', 'obs', 'fm_oQueFoi', 'type="text" maxlength="200" autocomplete="off"', t('fm_oQueFoiAjuda')) : ''}
+      ${f.tipo === 'filtro' && f.filtro === 'outro' ? campoForm('fm', 'obs', 'fm_obsFiltro', 'type="text" maxlength="200" autocomplete="off"') : ''}
       ${campoForm('fm', 'data', 'fm_data', `type="date" max="${hoje}"`)}
       ${campoForm('fm', 'km', 'fm_km', 'type="text" inputmode="numeric" maxlength="9" autocomplete="off"', t('fm_kmAjuda', { n: fmtNum(u.km) }))}
       ${campoForm('fm', 'valor', 'fm_valor', 'type="text" inputmode="decimal" maxlength="10" autocomplete="off"')}
-      ${campoForm('fm', 'obs', 'fm_obs', 'type="text" maxlength="200" autocomplete="off"', t('fm_obsAjuda'))}
+      ${f.tipo === 'oleo' || (f.tipo === 'filtro' && f.filtro !== 'outro') ? campoForm('fm', 'obs', 'fm_obs', 'type="text" maxlength="200" autocomplete="off"') : ''}
       <button class="botao verde largo" id="fm-salvar" data-acao="salvarManut">${t('fm_salvar')}</button>
     </div></div>`;
   }
@@ -4053,12 +4252,49 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
       <div class="campo-claro"><label for="fl-diaVenc">${t('fl_diaVenc')}</label>
         <select id="fl-diaVenc" data-campo="fl.diaVenc" aria-invalid="${!!e.diaVenc}">${opcoes(semana, f.diaVenc)}</select>${erroSel('diaVenc')}</div>
       ${campoForm('fl', 'valorSemanal', 'fl_valorSemanal', 'type="text" inputmode="decimal" maxlength="10" autocomplete="off"')}
+      <h3 class="rotulo">${t('fl_caucaoTitulo')}</h3>
+      ${atual && atual.caucaoAcerto ? `<p class="nota">${esc(t('fl_caucaoTravada', { d: dataBR(atual.caucaoAcerto.data) }))}</p>`
+        : `${campoForm('fl', 'caucao', 'fl_caucao', 'type="text" inputmode="decimal" maxlength="10" autocomplete="off"', t('fl_caucaoAjuda'))}
+      ${campoForm('fl', 'caucaoData', 'fl_caucaoData', `type="date" max="${hoje}"`)}`}
       <button class="botao verde largo" id="fl-salvar" data-acao="salvarCliente">${t('fl_salvar')}</button>
       ${!atual ? '' : c.certezaRemover
         ? `<div class="certeza" role="alert"><p>${esc(t('removerClienteCerteza', { n: atual.nome }))}</p>
           <div class="certeza-botoes"><button class="botao pare" data-acao="removerClienteSim">${t('simRemover')}</button><button class="botao linha" data-acao="removerClienteNao">${t('naoManter')}</button></div></div>`
         : `<button class="botao linha" data-acao="removerClientePedir">${t('removerCliente')}</button>`}
     </div></div>`;
+  }
+
+  // acerto da caução no fim do contrato: devolve tudo ou desconta (com motivo); depois de salvo não muda
+  function modalCaucao() {
+    const m = UI.modal, f = m.f, c = clienteId(m.cliente), hoje = hojeData();
+    if (!c) return '';
+    const prev = L.validarAcertoCaucao(f, c, hoje).acerto;
+    const devolver = Number.isFinite(prev.devolvido) && prev.devolvido >= 0 ? prev.devolvido : c.caucao;
+    return `<div class="jan-fundo"><div class="janela" role="dialog" aria-modal="true" aria-label="${t('ak_titulo')}">
+      <button class="fechar" id="jan-fechar" data-acao="fecharModal" aria-label="${t('fechar')}">×</button>
+      <h2 class="titulo">${t('ak_titulo')}</h2>
+      <p class="specs">${esc(t('ak_resumo', { n: c.nome, v: moeda(c.caucao), d: dataBR(c.caucaoData || c.entrega) }))}</p>
+      ${campoForm('fk', 'descontado', 'ak_descontado', 'type="text" inputmode="decimal" maxlength="10" autocomplete="off"', t('ak_descontadoAjuda'))}
+      ${campoForm('fk', 'motivo', 'ak_motivo', 'type="text" maxlength="200" autocomplete="off"')}
+      ${campoForm('fk', 'data', 'ak_data', `type="date" max="${hoje}"`)}
+      <p class="ak-devolver" id="ak-devolver"><strong>${esc(t('ak_devolver', { v: moeda(devolver) }))}</strong></p>
+      <p class="nota">${t('ak_aviso')}</p>
+      <button class="botao verde largo" id="fk-salvar" data-acao="salvarAcertoCaucao">${t('ak_salvar')}</button>
+    </div></div>`;
+  }
+
+  function salvarAcertoCaucao() {
+    const m = UI.modal, c = clienteId(m.cliente), hoje = hojeData();
+    if (!c || !(c.caucao > 0) || c.caucaoAcerto) { log('acerto de caução cancelado', m.cliente); fecharModal(); desenhar(); return; }
+    const { erros, acerto } = L.validarAcertoCaucao(m.f, c, hoje);
+    m.erros = erros;
+    if (Object.keys(erros).length) { log('acerto de caução com erro', Object.keys(erros).join(', ')); desenharModal(); focarErro('fk', erros); return; }
+    c.caucaoAcerto = acerto;
+    const ok = salvar();
+    log('caução acertada', `${c.id} descontado ${acerto.descontado}`);
+    avisar(ok ? t('caucaoAcertadaAviso', { n: c.nome, v: moeda(acerto.devolvido) }) : t('erroSalvarAparelho'));
+    fecharModal();
+    desenhar();
   }
 
   const MB = 1024 * 1024;
@@ -4150,7 +4386,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     const m = UI.modal;
     const antes = alvo.querySelector('.janela');
     const y = antes ? antes.scrollTop : 0;
-    const janelas = { vistoria: modalVistoria, checkin: modalCheckin, carro: modalCarro, manut: modalManut, custo: modalCusto, cliente: modalCliente, anexos: modalAnexos, copia: modalCopia, conta: modalConta };
+    const janelas = { vistoria: modalVistoria, checkin: modalCheckin, carro: modalCarro, manut: modalManut, custo: modalCusto, cliente: modalCliente, anexos: modalAnexos, copia: modalCopia, conta: modalConta, caucao: modalCaucao };
     alvo.innerHTML = !m ? '' : janelas[m.tipo] ? janelas[m.tipo]() : modalReserva(reserva(m.id));
     const depois = alvo.querySelector('.janela');
     if (depois) depois.scrollTop = y;
@@ -4339,10 +4575,10 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     m.cat = carro.categoria; // categoria e diária são do modelo (o cliente reserva o modelo, "ou similar")
     E.tarifas[m.id] = carro.tarifa;
     if (atual) {
-      Object.assign(atual, { modelo: m.id, ano: carro.ano, placa: carro.placa, km: carro.km, fipe: carro.fipe, foto: f.foto || null, cor: carro.cor, renavam: carro.renavam });
+      Object.assign(atual, { modelo: m.id, ano: carro.ano, placa: carro.placa, km: carro.km, fipe: carro.fipe, foto: f.foto || null, cor: carro.cor, renavam: carro.renavam, oleoKm: carro.oleoKm, filtroKm: carro.filtroKm });
     } else {
       E.unidades.push({ id: proximoId('u', [...E.unidades, ...E.removidos]), modelo: m.id, placa: carro.placa, local: D.LOCAIS[0].id,
-        km: carro.km, situacao: 'ok', ano: carro.ano, oleoKm: L.REGRAS.oleoPadraoKm, filtroKm: L.REGRAS.filtroPadraoKm, foto: f.foto || null, fipe: carro.fipe,
+        km: carro.km, situacao: 'ok', ano: carro.ano, oleoKm: carro.oleoKm, filtroKm: carro.filtroKm, foto: f.foto || null, fipe: carro.fipe,
         cor: carro.cor, renavam: carro.renavam, kmData: null });
     }
     const ok = salvar();
@@ -4414,7 +4650,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     E.manutencoes.push({ id: proximoId('mt', E.manutencoes), unidade: u.id, ...registro });
     if (registro.km > u.km) u.km = registro.km; // hodômetro andou desde o último registro
     salvar();
-    log('manutenção registrada', `${u.placa} ${registro.tipo}`);
+    log('manutenção registrada', `${u.placa} ${registro.tipo}${registro.filtro ? ' ' + registro.filtro : ''}`);
     avisar(t('manutSalva', { p: u.placa }));
     fecharModal();
     desenhar();
@@ -4575,7 +4811,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     const ok = salvar();
     log('km mensal registrado', `${u.placa} ${km}`);
     const hoje = hojeData();
-    const alerta = ['oleo', 'filtro'].map((tp) => [tp, L.situacaoTroca(u, E.manutencoes, tp, hoje)]).find(([, s]) => s.estado === 'passou' || s.estado === 'perto');
+    const alerta = [['oleo', L.situacaoTroca(u, E.manutencoes, 'oleo', hoje)], ['filtro', L.situacaoFiltros(u, E.manutencoes, hoje)]].find(([, s]) => s.estado === 'passou' || s.estado === 'perto');
     avisar(!ok ? t('erroSalvarAparelho') : alerta
       ? t('kmRegistradoTroca', { p: u.placa, k: fmtNum(km), t: t('curto_' + alerta[0]).toLocaleLowerCase(LOCALE), s: t('tr_' + alerta[1].estado) })
       : t('kmRegistrado', { p: u.placa, k: fmtNum(km) }));
@@ -4767,7 +5003,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   // telas antes dos dados: entrar, criar senha, sem acesso, carregando, erro
   function telaEntrada() {
     const f = NUVEM.form, msg = NUVEM.msg ? `<p class="${/Enviado$/.test(NUVEM.msg) ? 'nota' : 'erro'}" role="alert">${t(NUVEM.msg)}</p>` : '';
-    const marca = `<p class="ent-marca">${esc(D.CONFIG.marca)}</p>`;
+    const marca = `<p class="ent-marca">${logoMarca(temaAtual() === 'dark' ? 'escuro' : 'claro')}</p>`;
     let miolo;
     if (NUVEM.tela === 'entrada') {
       miolo = `<form class="ent-cartao" data-form="entrar" novalidate>
@@ -5078,14 +5314,14 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     },
     novoCarro() {
       abrirModal({ tipo: 'carro', unidade: null, erros: {}, certezaRemover: false,
-        f: { modelo: '', categoria: D.CATEGORIAS[0], ano: String(anoAtual()), placa: '', tarifa: '', km: '0', fipe: '', cor: '', renavam: '', foto: null } });
+        f: { modelo: '', categoria: D.CATEGORIAS[0], ano: String(anoAtual()), placa: '', tarifa: '', km: '0', fipe: '', cor: '', renavam: '', oleoKm: '', filtroKm: '', foto: null } });
     },
     editarCarro(x) {
       const u = unidade(x);
       if (!u) return;
       const m = modelo(u.modelo);
       abrirModal({ tipo: 'carro', unidade: u.id, erros: {}, certezaRemover: false,
-        f: { modelo: m.nome, categoria: m.cat, ano: String(u.ano), placa: u.placa, tarifa: reaisTxt(E.tarifas[m.id]), km: String(u.km), fipe: u.fipe ? reaisTxt(u.fipe) : '', cor: u.cor || '', renavam: u.renavam || '', foto: u.foto || null } });
+        f: { modelo: m.nome, categoria: m.cat, ano: String(u.ano), placa: u.placa, tarifa: reaisTxt(E.tarifas[m.id]), km: String(u.km), fipe: u.fipe ? reaisTxt(u.fipe) : '', cor: u.cor || '', renavam: u.renavam || '', oleoKm: String(u.oleoKm), filtroKm: String(u.filtroKm), foto: u.foto || null } });
     },
     salvarCarro() { salvarCarro(); },
     fcSemFoto() { UI.modal.f.foto = null; desenharModal(); const b = document.getElementById('fc-foto'); if (b) b.focus({ preventScroll: true }); },
@@ -5103,7 +5339,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     novaManut(x) {
       const u = unidade(x);
       if (!u) return;
-      abrirModal({ tipo: 'manut', unidade: u.id, erros: {}, f: { tipo: 'oleo', data: hojeTxt().slice(0, 10), km: String(u.km), valor: '', obs: '' } });
+      abrirModal({ tipo: 'manut', unidade: u.id, erros: {}, f: { tipo: 'oleo', filtro: '', data: hojeTxt().slice(0, 10), km: String(u.km), valor: '', obs: '' } });
     },
     salvarManut() { salvarManut(); },
     apagarManut(x) {
@@ -5174,7 +5410,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     novoCliente() {
       abrirModal({ tipo: 'cliente', cliente: null, erros: {}, certezaRemover: false,
         f: { nome: '', cpf: '', cnhNumero: '', cnhCategoria: 'B', cnhValidade: '', endereco: '', fone: '', email: '', antOk: false, antData: '', antObs: '',
-          unidade: '', entrega: hojeData(), devolucao: '', diaVenc: '', valorSemanal: '' } });
+          unidade: '', entrega: hojeData(), devolucao: '', diaVenc: '', valorSemanal: '', caucao: '', caucaoData: hojeData() } });
     },
     editarCliente(x) {
       const c = clienteId(x);
@@ -5182,9 +5418,16 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
       abrirModal({ tipo: 'cliente', cliente: c.id, erros: {}, certezaRemover: false,
         f: { nome: c.nome, cpf: c.cpf, cnhNumero: c.cnhNumero, cnhCategoria: c.cnhCategoria, cnhValidade: c.cnhValidade, endereco: c.endereco, fone: c.fone,
           email: c.email, antOk: c.antecedentes.ok, antData: c.antecedentes.data, antObs: c.antecedentes.obs, unidade: c.unidade,
-          entrega: c.entrega || hojeData(), devolucao: c.devolucao, diaVenc: c.diaVenc === null ? '' : String(c.diaVenc), valorSemanal: c.valorSemanal ? reaisTxt(c.valorSemanal) : '' } });
+          entrega: c.entrega || hojeData(), devolucao: c.devolucao, diaVenc: c.diaVenc === null ? '' : String(c.diaVenc), valorSemanal: c.valorSemanal ? reaisTxt(c.valorSemanal) : '',
+          caucao: c.caucao ? reaisTxt(c.caucao) : '', caucaoData: c.caucaoData || c.entrega || hojeData(), caucaoAcertada: c.caucaoAcerto ? c.caucao : 0 } });
     },
     salvarCliente() { salvarCliente(); },
+    acertarCaucao(x) {
+      const c = clienteId(x), cau = c && L.situacaoCaucao(c, hojeData());
+      if (!cau || cau.estado !== 'acertar') return;
+      abrirModal({ tipo: 'caucao', cliente: c.id, erros: {}, f: { descontado: '', motivo: '', data: hojeData() } });
+    },
+    salvarAcertoCaucao() { salvarAcertoCaucao(); },
     removerClientePedir() {
       UI.modal.certezaRemover = true;
       desenharModal();
@@ -5317,8 +5560,16 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     if (c.startsWith('motorista.')) UI.rascunho.motorista[c.split('.')[1]] = e.target.value;
     if (c === 'vist.km') UI.modal.km = e.target.value;
     if (c === 'ck.texto') UI.modal.texto = e.target.value;
-    if (/^f[cmula]\.\w+$/.test(c) && c !== 'fc.foto' && c !== 'fa.arquivo' && UI.modal && UI.modal.f) UI.modal.f[c.slice(3)] = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
+    if (/^f[cmulak]\.\w+$/.test(c) && c !== 'fc.foto' && c !== 'fa.arquivo' && UI.modal && UI.modal.f) UI.modal.f[c.slice(3)] = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
     if (c === 'fu.valor' && UI.modal) UI.modal.auto = false; // o dono digitou: não troca mais o valor sozinho
+    if (c === 'fk.descontado' && UI.modal && UI.modal.tipo === 'caucao') {
+      // mostra na hora quanto devolver (sem redesenhar a janela, pra não perder o cursor)
+      const cl = clienteId(UI.modal.cliente), alvo = document.getElementById('ak-devolver');
+      if (cl && alvo) {
+        const d = L.validarDinheiro(e.target.value, 0, cl.caucao, 0);
+        alvo.innerHTML = `<strong>${esc(t('ak_devolver', { v: moeda(d === null ? cl.caucao : cl.caucao - d) }))}</strong>`;
+      }
+    }
     if (c.startsWith('novoFixo.')) UI.novoFixo[c.slice(9)] = e.target.value;
     if (c === 'kmLembrete') UI.kmLembrete[e.target.dataset.x] = e.target.value;
     if (c.startsWith('ent.')) NUVEM.form[c.slice(4)] = e.target.value;
@@ -5331,6 +5582,14 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     if (c === 'fc.foto') { lerFoto(el.files && el.files[0]); return; }
     if (c === 'fa.arquivo') { escolherAnexo(el.files && el.files[0]); return; }
     if (c === 'arquivoCopia') { lerCopia(el.files && el.files[0]); return; }
+    if ((c === 'fm.tipo' || c === 'fm.filtro') && UI.modal && UI.modal.tipo === 'manut') {
+      UI.modal.f[c.slice(3)] = el.value;
+      UI.modal.erros = {};
+      desenharModal();
+      const de = document.getElementById(el.id);
+      if (de) de.focus({ preventScroll: true });
+      return;
+    }
     if (c === 'fu.tipo' || c === 'fu.unidade') {
       const m = UI.modal;
       if (!m || m.tipo !== 'custo') return;
@@ -5341,7 +5600,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
       if (de) de.focus({ preventScroll: true });
       return;
     }
-    if (/^f[cmula]\.\w+$/.test(c)) { if (UI.modal && UI.modal.f) UI.modal.f[c.slice(3)] = el.type === 'checkbox' ? el.checked : el.value; return; }
+    if (/^f[cmulak]\.\w+$/.test(c)) { if (UI.modal && UI.modal.f) UI.modal.f[c.slice(3)] = el.type === 'checkbox' ? el.checked : el.value; return; }
     if (c.startsWith('novoFixo.')) { UI.novoFixo[c.slice(9)] = el.value; return; }
     if (c === 'ficha') { if (E.unidades.some((u) => u.id === el.value)) { UI.fichaId = el.value; desenhar(); } return; }
     if (c === 'fixoNome' || c === 'fixoValor') {
@@ -5500,5 +5759,3 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
 })();
 
 </script>
-
-</html>
