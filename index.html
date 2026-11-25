@@ -16,6 +16,7 @@
   --placa-funda: #D96800;
   --refletivo: #14181A;
   --ambar: #D9A80B;
+  --ambar-texto: #8F6A00; /* amarelo escuro: texto amarelo legível no fundo branco */
   --sobre-ambar: #14181A;
   --pare: #C0392B;
   --sobre-pare: #FFFFFF;
@@ -38,14 +39,14 @@
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --placa: #F27400; --placa-funda: #D96800; --refletivo: #14181A; --pare: #EF6B5B; --sobre-pare: #14181A; --verde: #5CBF8A; --ambar: #E8C04A;
+    --placa: #F27400; --placa-funda: #D96800; --refletivo: #14181A; --pare: #EF6B5B; --sobre-pare: #14181A; --verde: #5CBF8A; --ambar: #E8C04A; --ambar-texto: #E8C04A;
     --chao: #0F1314; --sup: #171B1D; --sup-2: #1F2427; --tinta: #F2F3F3; --apagado: #9AA3A6; --linha: #2A3033; --ok: #FF8A1F;
     --carro-claro: #55625B; --sombra: 0 1px 2px rgba(0, 0, 0, .35);
     color-scheme: dark;
   }
 }
 :root[data-theme="dark"] {
-  --placa: #F27400; --placa-funda: #D96800; --refletivo: #14181A; --pare: #EF6B5B; --sobre-pare: #14181A; --verde: #5CBF8A; --ambar: #E8C04A;
+  --placa: #F27400; --placa-funda: #D96800; --refletivo: #14181A; --pare: #EF6B5B; --sobre-pare: #14181A; --verde: #5CBF8A; --ambar: #E8C04A; --ambar-texto: #E8C04A;
     --chao: #0F1314; --sup: #171B1D; --sup-2: #1F2427; --tinta: #F2F3F3; --apagado: #9AA3A6; --linha: #2A3033; --ok: #FF8A1F;
     --carro-claro: #55625B; --sombra: 0 1px 2px rgba(0, 0, 0, .35);
     color-scheme: dark;
@@ -426,7 +427,10 @@ fieldset.grupo .opcao + .opcao { margin-top: 0; }
 .manut-cab { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .manut-cab div { display: flex; flex-direction: column; min-width: 0; flex: 1; }
 .manut-gasto { font-size: .86rem; }
-.trocas { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.trocas { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; } /* 24/11: só a caixa do óleo, na largura toda */
+.troca-corpo { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 6px 16px; }
+.troca-info { flex: 1 1 220px; display: grid; gap: 2px; min-width: 0; }
+.troca-int { flex: 0 1 170px; display: grid; gap: 4px; min-width: 0; }
 .troca { border: 1px solid var(--linha); border-radius: 8px; padding: 8px; display: flex; flex-direction: column; gap: 4px; font-size: .84rem; min-width: 0; }
 .troca.tr-passou { border: 2px solid var(--pare); }
 .troca.tr-perto { border: 2px solid var(--ambar); }
@@ -561,7 +565,7 @@ body { font-size: 15.5px; -webkit-font-smoothing: antialiased; }
 .selo { display: inline-flex; align-items: center; gap: 6px; background: none !important; border: 0 !important; padding: 0; border-radius: 0; font-size: .84rem; font-weight: 500; color: var(--tinta); text-decoration: none; white-space: nowrap; }
 .selo::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--ponto, var(--apagado)); flex: none; }
 .selo.pare { color: var(--pare); --ponto: var(--pare); }
-.selo.atencao { --ponto: var(--ambar); }
+.selo.atencao { color: var(--ambar-texto); --ponto: var(--ambar); } /* 24/11: texto amarelo (antes herdava o grafite e sumia no modo noite) */
 .selo.ok { --ponto: var(--ok); }
 .selo.car-disponivel { color: var(--tinta); --ponto: var(--verde); }
 .selo.car-alugado { color: var(--tinta); --ponto: var(--ok); }
@@ -1969,7 +1973,7 @@ body { font-size: 15.5px; -webkit-font-smoothing: antialiased; }
     fm_oQueFoi: 'O que foi feito',
     fm_oQueFoiAjuda: 'Ex.: troca de embreagem, alinhamento e balanceamento, bateria.',
     troca_outra: 'Outra manutenção',
-    curto_oleo: 'Óleo do motor',
+    curto_oleo: 'Óleo do motor + filtro de óleo',
     tr_semRegistro: 'sem registro',
     tr_ok: 'em dia',
     tr_perto: 'perto do limite',
@@ -3853,10 +3857,12 @@ window.LOGO_MARCA = {
       : `<small>${esc(t('trUltima', { d: dataBR(s.ultimaData) }))}</small><small>${esc(t(s.diasFaltam > 0 ? 'trData' : 'trDataPassou', { d: dataBR(s.proximaData), n: Math.abs(s.diasFaltam) }))}</small>`;
     return `<div class="troca tr-${s.estado}">
       <div class="troca-topo"><strong>${t('curto_' + tipo)}</strong><span class="selo ${SELO_TROCA[s.estado]}">${t('tr_' + s.estado)}</span></div>
-      <small>${esc(txt)}</small>${porData}
-      <label for="${id}">${t('intervaloOleo')}</label>
-      <input id="${id}" inputmode="numeric" value="${esc(s.intervalo)}" data-campo="intervalo" data-x="${u.id}" data-y="${tipo}" aria-invalid="${!!erro}">
-      ${erro ? `<p class="erro" role="alert">${t('erroIntervalo')}</p>` : ''}
+      <div class="troca-corpo">
+        <div class="troca-info"><small>${esc(txt)}</small>${porData}</div>
+        <div class="troca-int"><label for="${id}">${t('intervaloOleo')}</label>
+          <input id="${id}" inputmode="numeric" value="${esc(s.intervalo)}" data-campo="intervalo" data-x="${u.id}" data-y="${tipo}" aria-invalid="${!!erro}">
+          ${erro ? `<p class="erro" role="alert">${t('erroIntervalo')}</p>` : ''}</div>
+      </div>
     </div>`;
   }
 
