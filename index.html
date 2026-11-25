@@ -677,10 +677,16 @@ body { font-size: 15.5px; -webkit-font-smoothing: antialiased; }
   };
 
   const KM_MAX = 2000000;
-  const TIPOS_MANUTENCAO = ['oleo', 'filtro', 'outra'];
-  // 24/11/2026 (pedido do Adilson): a troca de óleo já inclui o filtro de óleo; os outros filtros são escolhidos numa lista.
-  // Registro antigo de filtro (sem `filtro`) continua valendo como "filtro sem especificar".
+  const TIPOS_MANUTENCAO = ['oleo', 'filtro', 'freio', 'pneu', 'outra'];
+  // 24/11/2026 (pedido do Adilson/Erickson): cada tipo abre uma segunda lista pra dizer o que foi feito.
+  // Filtro de óleo não entra em FILTROS: ele vai junto com o óleo do motor. Registro antigo de filtro
+  // (sem `filtro`) continua valendo como "filtro sem especificar".
   const FILTROS = ['ar', 'arCondicionado', 'combustivel', 'outro'];
+  // registro antigo de óleo (sem `oleo`) = óleo do motor + filtro (era o único tipo de óleo até a v6)
+  const OLEOS = ['motor', 'motorFiltro', 'cambio', 'transmissao'];
+  const OLEOS_DO_MOTOR = ['motor', 'motorFiltro']; // só estes contam pra "próxima troca de óleo"
+  const FREIOS = ['pastilha', 'fluido'];
+  const qualOleo = (m) => m.oleo || 'motorFiltro';
 
   // "abc-1d23" -> "ABC1D23"
   function normalizarPlaca(texto) { return String(texto || '').toUpperCase().replace(/[^A-Z0-9]/g, ''); }
@@ -751,8 +757,8 @@ body { font-size: 15.5px; -webkit-font-smoothing: antialiased; }
     return { erros, carro };
   }
 
-  /* f: { tipo, data (AAAA-MM-DD), km, valor, obs, filtro }; outra manutenção precisa dizer o que foi feito;
-     troca de filtro precisa dizer qual filtro (e "outro filtro" precisa dizer qual na observação) */
+  /* f: { tipo, data (AAAA-MM-DD), km, valor, obs, filtro, oleo, freio }; outra manutenção precisa dizer o que foi feito;
+     óleo, filtro e freio precisam dizer qual na segunda lista ("outro filtro" precisa dizer qual na observação) */
   function validarManutencao(f, hoje) {
     const erros = {};
     if (!TIPOS_MANUTENCAO.includes(f.tipo)) erros.tipo = 'erroTipoManut';
@@ -772,6 +778,14 @@ body { font-size: 15.5px; -webkit-font-smoothing: antialiased; }
       else if (f.filtro === 'outro' && obs.length < 3 && !erros.obs) erros.obs = 'erroObsFiltro';
       registro.filtro = f.filtro;
     }
+    if (f.tipo === 'oleo') {
+      if (!OLEOS.includes(f.oleo)) erros.oleo = 'erroQualOleo';
+      registro.oleo = f.oleo;
+    }
+    if (f.tipo === 'freio') {
+      if (!FREIOS.includes(f.freio)) erros.freio = 'erroQualFreio';
+      registro.freio = f.freio;
+    }
     return { erros, registro };
   }
 
@@ -789,7 +803,8 @@ body { font-size: 15.5px; -webkit-font-smoothing: antialiased; }
   function situacaoTroca(u, manutencoes, tipo, hoje, filtro) {
     const intervalo = tipo === 'oleo' ? u.oleoKm : u.filtroKm;
     const prazoDias = tipo === 'oleo' ? REGRAS.oleoPadraoDias : REGRAS.filtroPadraoDias;
-    const regs = manutencoes.filter((m) => m.unidade === u.id && m.tipo === tipo && (filtro === undefined || (m.filtro || '') === filtro));
+    const regs = manutencoes.filter((m) => m.unidade === u.id && m.tipo === tipo && (filtro === undefined || (m.filtro || '') === filtro)
+      && (tipo !== 'oleo' || OLEOS_DO_MOTOR.includes(qualOleo(m)))); // óleo de câmbio/transmissão não zera a troca do motor
     if (!regs.length) return { estado: 'semRegistro', intervalo, ultimaKm: null, proximaKm: null, faltam: null, prazoDias, ultimaData: null, proximaData: null, diasFaltam: null };
     const ultimaKm = Math.max(...regs.map((m) => m.km)), proximaKm = ultimaKm + intervalo, faltam = proximaKm - u.km;
     const ultimaData = regs.map((m) => m.data).sort().pop(), proximaData = somarDias(ultimaData, prazoDias);
@@ -798,18 +813,6 @@ body { font-size: 15.5px; -webkit-font-smoothing: antialiased; }
     const porData = diasFaltam === null ? 'ok' : diasFaltam <= 0 ? 'passou' : diasFaltam <= REGRAS.avisoTrocaDias ? 'perto' : 'ok';
     const estado = PESO_ESTADO[porData] > PESO_ESTADO[porKm] ? porData : porKm;
     return { estado, intervalo, ultimaKm, proximaKm, faltam, prazoDias, ultimaData, proximaData, diasFaltam };
-  }
-
-  /* situação de cada filtro já trocado alguma vez no carro (cada um vence do seu último registro, todos com o
-     mesmo intervalo do carro). Sem nenhum registro de filtro: uma linha só, "semRegistro".
-     Devolve { linhas: [{ filtro, s }], estado: o pior entre eles } */
-  function situacaoFiltros(u, manutencoes, hoje) {
-    const tipos = [...new Set(manutencoes.filter((m) => m.unidade === u.id && m.tipo === 'filtro').map((m) => m.filtro || ''))]
-      .sort((a, b) => (FILTROS.indexOf(a) + 1 || 99) - (FILTROS.indexOf(b) + 1 || 99));
-    if (!tipos.length) { const s = situacaoTroca(u, manutencoes, 'filtro', hoje); return { linhas: [{ filtro: null, s }], estado: s.estado, intervalo: s.intervalo }; }
-    const linhas = tipos.map((filtro) => ({ filtro, s: situacaoTroca(u, manutencoes, 'filtro', hoje, filtro) }));
-    const pior = linhas.reduce((a, b) => (PESO_ESTADO[b.s.estado] > PESO_ESTADO[a.s.estado] ? b : a));
-    return { linhas, estado: pior.s.estado, intervalo: u.filtroKm, pior: pior.s };
   }
 
   // dias corridos de a até b (datas AAAA-MM-DD); negativo se b vem antes
@@ -1322,7 +1325,7 @@ body { font-size: 15.5px; -webkit-font-smoothing: antialiased; }
     unidadesLivres, lojaAberta, preco, cpfValido, validarMotorista, validarTarifa, novoCodigo, multaCancelamento,
     checkinFeito, pontosDe, fidelidade, estadoCarro, indicadores,
     TIPOS_MANUTENCAO, normalizarPlaca, placaValida, validarValor, validarCarro, validarManutencao, validarIntervalo,
-    situacaoTroca, situacaoFiltros, gastoManutencao, FILTROS, situacaoCaucao, validarAcertoCaucao, caucoesGuardadas,
+    situacaoTroca, gastoManutencao, FILTROS, OLEOS, OLEOS_DO_MOTOR, FREIOS, qualOleo, situacaoCaucao, validarAcertoCaucao, caucoesGuardadas,
     TIPOS_CUSTO, CUSTOS_ANUAIS, validarDinheiro, validarFipe, validarAliquota, ipva, validarCusto, validarFixo, somarMes,
     custoNoMes, custoCobreMes, totalFixos, fixoPorCarro, margemCarro, margemFrota, simular,
     digitoRenavam, renavamValido, diasEntre, diaDaSemana, dataValida, CATEGORIAS_CNH, validarCliente, situacaoCnh,
@@ -1836,27 +1839,39 @@ body { font-size: 15.5px; -webkit-font-smoothing: antialiased; }
     // manutenção (dono)
     abaManut: 'Manutenção',
     abaManutAlerta: 'Manutenção ({n})',
-    manutAjuda: 'Registre cada troca com a data e o km do momento. A troca vence pelo km ou pela data, o que chegar primeiro (óleo: a cada 6 meses; filtros: a cada 12 meses). Cada filtro conta do seu último registro. O alerta aparece quando faltam {n} km ou {d} dias ou menos.',
+    manutAjuda: 'Registre cada manutenção com a data e o km do momento. A troca do óleo do motor vence pelo km ou em 6 meses, o que chegar primeiro. O alerta aparece quando faltam {n} km ou {d} dias ou menos.',
     manutVencidas: '{n} com troca vencida',
     manutPerto: '{n} perto do limite',
     manutTotalGeral: 'Gasto total em manutenção: {v}',
-    troca_oleo: 'Óleo + filtro de óleo',
+    troca_oleo: 'Óleo',
     troca_filtro: 'Troca de filtro',
+    troca_freio: 'Freio',
+    troca_pneu: 'Pneu',
+    oleo_motor: 'Óleo do motor',
+    oleo_motorFiltro: 'Óleo do motor + filtro de óleo',
+    oleo_cambio: 'Óleo de câmbio',
+    oleo_transmissao: 'Óleo de transmissão',
+    freio_pastilha: 'Pastilha de freio',
+    freio_fluido: 'Fluido de freio',
+    fm_oleo: 'Qual óleo',
+    fm_freio: 'O que foi feito no freio',
+    fm_escolha: 'Escolha uma opção',
+    erroQualOleo: 'Escolha qual óleo foi trocado.',
+    erroQualFreio: 'Escolha o que foi feito no freio.',
+    fm_obsPneu: 'Quais pneus / observação (opcional)',
     filtro_ar: 'Filtro de ar',
     filtro_arCondicionado: 'Filtro do ar-condicionado',
     filtro_combustivel: 'Filtro de combustível',
     filtro_outro: 'Outro filtro',
     filtro_: 'Filtro (sem dizer qual)',
     fm_filtro: 'Qual filtro',
-    fm_filtroEscolha: 'Escolha o filtro',
     erroQualFiltro: 'Escolha qual filtro foi trocado.',
     erroObsFiltro: 'Diga qual filtro foi trocado.',
     fm_obsFiltro: 'Qual filtro',
     fm_oQueFoi: 'O que foi feito',
-    fm_oQueFoiAjuda: 'Ex.: troca de embreagem, pastilha de freio, alinhamento.',
+    fm_oQueFoiAjuda: 'Ex.: troca de embreagem, alinhamento e balanceamento, bateria.',
     troca_outra: 'Outra manutenção',
-    curto_oleo: 'Óleo + filtro de óleo',
-    curto_filtro: 'Filtros',
+    curto_oleo: 'Óleo do motor',
     tr_semRegistro: 'sem registro',
     tr_ok: 'em dia',
     tr_perto: 'perto do limite',
@@ -1865,8 +1880,7 @@ body { font-size: 15.5px; -webkit-font-smoothing: antialiased; }
     trPassou: 'Era com {p} km · passou {f} km',
     trSemRegistroTxt: 'Registre a última troca para o app calcular a próxima.',
     intervaloOleo: 'Trocar óleo a cada (km)',
-    intervaloFiltro: 'Trocar filtros a cada (km)',
-    fc_intervalosAjuda: 'Você decide de quantos em quantos km troca neste carro. Dá pra mudar depois na aba Manutenção.',
+    fc_intervalosAjuda: 'Você decide de quantos em quantos km troca o óleo do motor neste carro. Dá pra mudar depois na aba Manutenção.',
     erroIntervalo: 'Use de 500 a 100.000 km.',
     intervaloSalvo: '{p}: {k} a cada {n} km',
     kmAtual: '{n} km',
@@ -2814,7 +2828,7 @@ window.LOGO_MARCA = {
       const fotoOk = (f) => f === null || (typeof f === 'string' && f.length <= 800000 && /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/]+=*$/.test(f));
       const unidadeOk = (u) => /^u\d+$/.test(u.id) && modelos.includes(u.modelo) && locais.includes(u.local)
         && ['ok', 'vistoria', 'manutencao'].includes(u.situacao) && typeof u.placa === 'string' && u.placa.length <= 10 && num(u.km)
-        && int(u.ano) && int(u.oleoKm) && u.oleoKm > 0 && int(u.filtroKm) && u.filtroKm > 0 && fotoOk(u.foto)
+        && int(u.ano) && int(u.oleoKm) && u.oleoKm > 0 && (u.filtroKm === undefined || (int(u.filtroKm) && u.filtroKm > 0)) && fotoOk(u.foto)
         && (u.fipe === undefined || (int(u.fipe) && u.fipe >= 0))
         && (u.cor === undefined || (typeof u.cor === 'string' && u.cor.length <= 20))
         && (u.renavam === undefined || u.renavam === '' || /^\d{11}$/.test(u.renavam))
@@ -2838,7 +2852,8 @@ window.LOGO_MARCA = {
       if (!s.clientes.every(clienteOk) || !s.recebimentos.every(recebOk) || !s.anexos.every(anexoOk)) return false;
       const manutOk = (m) => /^mt\d+$/.test(m.id) && frota.some((u) => u.id === m.unidade) && L.TIPOS_MANUTENCAO.includes(m.tipo)
         && dataOk(m.data) && int(m.km) && int(m.valor) && typeof m.obs === 'string' && m.obs.length <= 200
-        && (m.filtro === undefined || m.filtro === '' || L.FILTROS.includes(m.filtro));
+        && (m.filtro === undefined || m.filtro === '' || L.FILTROS.includes(m.filtro))
+        && (m.oleo === undefined || L.OLEOS.includes(m.oleo)) && (m.freio === undefined || L.FREIOS.includes(m.freio));
       if (!s.unidades.every(unidadeOk) || !s.removidos.every(unidadeOk) || !s.manutencoes.every(manutOk)) return false;
       const custoOk = (c) => /^cu\d+$/.test(c.id) && frota.some((u) => u.id === c.unidade) && L.TIPOS_CUSTO.includes(c.tipo)
         && dataOk(c.data) && int(c.valor) && c.valor >= 0 && typeof c.obs === 'string' && c.obs.length <= 120;
@@ -3640,8 +3655,8 @@ window.LOGO_MARCA = {
   function trocasDaFrota() {
     const hoje = hojeData();
     return E.unidades.map((u) => {
-      const oleo = L.situacaoTroca(u, E.manutencoes, 'oleo', hoje), filtro = L.situacaoFiltros(u, E.manutencoes, hoje);
-      return { u, oleo, filtro, pior: Math.min(PESO_TROCA[oleo.estado], PESO_TROCA[filtro.estado]) };
+      const oleo = L.situacaoTroca(u, E.manutencoes, 'oleo', hoje);
+      return { u, oleo, pior: PESO_TROCA[oleo.estado] };
     });
   }
 
@@ -3654,38 +3669,24 @@ window.LOGO_MARCA = {
     return `<div class="troca tr-${s.estado}">
       <div class="troca-topo"><strong>${t('curto_' + tipo)}</strong><span class="selo ${SELO_TROCA[s.estado]}">${t('tr_' + s.estado)}</span></div>
       <small>${esc(txt)}</small>${porData}
-      <label for="${id}">${t(tipo === 'oleo' ? 'intervaloOleo' : 'intervaloFiltro')}</label>
+      <label for="${id}">${t('intervaloOleo')}</label>
       <input id="${id}" inputmode="numeric" value="${esc(s.intervalo)}" data-campo="intervalo" data-x="${u.id}" data-y="${tipo}" aria-invalid="${!!erro}">
       ${erro ? `<p class="erro" role="alert">${t('erroIntervalo')}</p>` : ''}
     </div>`;
   }
 
-  // filtros: uma linha por filtro já trocado (cada um conta do seu último registro) e um intervalo só pro carro
-  function blocoFiltros(u, f) {
-    if (f.linhas.length === 1 && f.linhas[0].filtro === null) return blocoTroca(u, 'filtro', f.linhas[0].s);
-    const chave = `${u.id}-filtro`, erro = UI.erroIntervalo[chave], id = `int-filtro-${u.id}`;
-    const linha = ({ filtro, s }) => `<div class="filtro-linha">
-        <div class="troca-topo"><span>${esc(t('filtro_' + filtro))}</span><span class="selo ${SELO_TROCA[s.estado]}">${t('tr_' + s.estado)}</span></div>
-        <small>${esc(t(s.faltam > 0 ? 'trFaltam' : 'trPassou', { p: fmtNum(s.proximaKm), f: fmtNum(Math.abs(s.faltam)) }))}</small>
-        <small>${esc(t('trUltima', { d: dataBR(s.ultimaData) }))}</small></div>`;
-    return `<div class="troca tr-${f.estado}">
-      <div class="troca-topo"><strong>${t('curto_filtro')}</strong><span class="selo ${SELO_TROCA[f.estado]}">${t('tr_' + f.estado)}</span></div>
-      ${f.linhas.map(linha).join('')}
-      <label for="${id}">${t('intervaloFiltro')}</label>
-      <input id="${id}" inputmode="numeric" value="${esc(f.intervalo)}" data-campo="intervalo" data-x="${u.id}" data-y="filtro" aria-invalid="${!!erro}">
-      ${erro ? `<p class="erro" role="alert">${t('erroIntervalo')}</p>` : ''}
-    </div>`;
-  }
+  // nome do registro pela segunda lista (óleo antigo sem tipo = motor + filtro; filtro antigo sem tipo = "sem dizer qual")
+  const nomeManut = (r) => (r.tipo === 'oleo' ? t('oleo_' + L.qualOleo(r))
+    : r.tipo === 'filtro' && r.filtro !== undefined ? t('filtro_' + (r.filtro || ''))
+    : r.tipo === 'freio' && r.freio ? t('freio_' + r.freio) : t('troca_' + r.tipo));
 
-  const nomeManut = (r) => (r.tipo === 'filtro' && r.filtro !== undefined ? t('filtro_' + (r.filtro || '')) : t('troca_' + r.tipo));
-
-  function cartaoManut({ u, oleo, filtro }) {
+  function cartaoManut({ u, oleo }) {
     const m = modelo(u.modelo);
     const regs = E.manutencoes.filter((r) => r.unidade === u.id).sort((a, b) => b.data.localeCompare(a.data) || b.km - a.km);
     return `<article class="manut-cartao">
       <div class="manut-cab">${placaHTML(u.placa)}<div><strong>${esc(m.nome)}</strong><small>${esc(t('kmAtual', { n: fmtNum(u.km) }))} · ${esc(u.ano)}</small></div>
         <b class="manut-gasto">${esc(t('gastoCarro', { v: moeda(L.gastoManutencao(E.manutencoes, u.id)) }))}</b></div>
-      <div class="trocas">${blocoTroca(u, 'oleo', oleo)}${blocoFiltros(u, filtro)}</div>
+      <div class="trocas">${blocoTroca(u, 'oleo', oleo)}</div>
       ${regs.length ? `<ul class="manut-regs">${regs.map((r) => `<li><span><strong>${esc(nomeManut(r))}</strong> · ${esc(fmtDataAno.format(L.ms(`${r.data}T00:00`)))} · ${esc(fmtNum(r.km))} km · ${esc(moeda(r.valor))}${r.obs ? `<small>${esc(r.obs)}</small>` : ''}</span>
         <button class="fino" data-acao="apagarManut" data-x="${r.id}">${t(UI.certezaManut === r.id ? 'apagarManutCerteza' : 'apagarManut')}</button></li>`).join('')}</ul>`
         : `<p class="nota">${t('semManutRegistro')}</p>`}
@@ -4158,8 +4159,7 @@ window.LOGO_MARCA = {
       ${campoForm('fc', 'cor', 'fc_cor', 'type="text" maxlength="20" autocomplete="off"')}
       ${campoForm('fc', 'renavam', 'fc_renavam', 'type="text" inputmode="numeric" maxlength="13" autocomplete="off" spellcheck="false"', t('fc_renavamAjuda'))}
       ${campoForm('fc', 'km', 'fc_km', 'type="text" inputmode="numeric" maxlength="9" autocomplete="off"')}
-      ${campoForm('fc', 'oleoKm', 'intervaloOleo', 'type="text" inputmode="numeric" maxlength="7" autocomplete="off"')}
-      ${campoForm('fc', 'filtroKm', 'intervaloFiltro', 'type="text" inputmode="numeric" maxlength="7" autocomplete="off"', t('fc_intervalosAjuda'))}
+      ${campoForm('fc', 'oleoKm', 'intervaloOleo', 'type="text" inputmode="numeric" maxlength="7" autocomplete="off"', t('fc_intervalosAjuda'))}
       ${campoForm('fc', 'fipe', 'fc_fipe', 'type="text" inputmode="decimal" maxlength="13" autocomplete="off"', t('fc_fipeAjuda', { a: pctTxt(E.config.aliqLocadora) }))}
       <div class="campo-claro"><label for="fc-foto">${t('fc_foto')}</label>
         ${f.foto ? `<img class="fc-foto" src="${esc(f.foto)}" alt="">` : ''}
@@ -4175,6 +4175,15 @@ window.LOGO_MARCA = {
     </div></div>`;
   }
 
+  // óleo, filtro e freio: depois do tipo, uma segunda lista pra dizer o que foi feito (campo fm.<tipo>)
+  const SEGUNDA_LISTA = { oleo: () => L.OLEOS, filtro: () => L.FILTROS, freio: () => L.FREIOS };
+  function segundaLista(tipo, f, e) {
+    const itens = SEGUNDA_LISTA[tipo]().map((x) => [x, t(`${tipo}_${x}`)]);
+    return `<div class="campo-claro"><label for="fm-${tipo}">${t('fm_' + tipo)}</label>
+        <select id="fm-${tipo}" data-campo="fm.${tipo}" aria-invalid="${!!e[tipo]}">${opcoes([['', t('fm_escolha')], ...itens], f[tipo] || '')}</select>
+        ${e[tipo] ? `<p class="erro" role="alert">${t(e[tipo])}</p>` : ''}</div>`;
+  }
+
   function modalManut() {
     const c = UI.modal, f = c.f, e = c.erros, u = unidade(c.unidade), m = modelo(u.modelo);
     const tipos = L.TIPOS_MANUTENCAO.map((x) => [x, t('troca_' + x)]), hoje = hojeTxt().slice(0, 10);
@@ -4185,15 +4194,13 @@ window.LOGO_MARCA = {
       <div class="campo-claro"><label for="fm-tipo">${t('fm_tipo')}</label>
         <select id="fm-tipo" data-campo="fm.tipo">${opcoes(tipos, f.tipo)}</select>
         ${e.tipo ? `<p class="erro" role="alert">${t('erroTipoManut')}</p>` : ''}</div>
-      ${f.tipo === 'filtro' ? `<div class="campo-claro"><label for="fm-filtro">${t('fm_filtro')}</label>
-        <select id="fm-filtro" data-campo="fm.filtro" aria-invalid="${!!e.filtro}">${opcoes([['', t('fm_filtroEscolha')], ...L.FILTROS.map((x) => [x, t('filtro_' + x)])], f.filtro || '')}</select>
-        ${e.filtro ? `<p class="erro" role="alert">${t(e.filtro)}</p>` : ''}</div>` : ''}
+      ${SEGUNDA_LISTA[f.tipo] ? segundaLista(f.tipo, f, e) : ''}
       ${f.tipo === 'outra' ? campoForm('fm', 'obs', 'fm_oQueFoi', 'type="text" maxlength="200" autocomplete="off"', t('fm_oQueFoiAjuda')) : ''}
       ${f.tipo === 'filtro' && f.filtro === 'outro' ? campoForm('fm', 'obs', 'fm_obsFiltro', 'type="text" maxlength="200" autocomplete="off"') : ''}
       ${campoForm('fm', 'data', 'fm_data', `type="date" max="${hoje}"`)}
       ${campoForm('fm', 'km', 'fm_km', 'type="text" inputmode="numeric" maxlength="9" autocomplete="off"', t('fm_kmAjuda', { n: fmtNum(u.km) }))}
       ${campoForm('fm', 'valor', 'fm_valor', 'type="text" inputmode="decimal" maxlength="10" autocomplete="off"')}
-      ${f.tipo === 'oleo' || (f.tipo === 'filtro' && f.filtro !== 'outro') ? campoForm('fm', 'obs', 'fm_obs', 'type="text" maxlength="200" autocomplete="off"') : ''}
+      ${f.tipo !== 'outra' && !(f.tipo === 'filtro' && f.filtro === 'outro') ? campoForm('fm', 'obs', f.tipo === 'pneu' ? 'fm_obsPneu' : 'fm_obs', 'type="text" maxlength="200" autocomplete="off"') : ''}
       <button class="botao verde largo" id="fm-salvar" data-acao="salvarManut">${t('fm_salvar')}</button>
     </div></div>`;
   }
@@ -4575,10 +4582,10 @@ window.LOGO_MARCA = {
     m.cat = carro.categoria; // categoria e diária são do modelo (o cliente reserva o modelo, "ou similar")
     E.tarifas[m.id] = carro.tarifa;
     if (atual) {
-      Object.assign(atual, { modelo: m.id, ano: carro.ano, placa: carro.placa, km: carro.km, fipe: carro.fipe, foto: f.foto || null, cor: carro.cor, renavam: carro.renavam, oleoKm: carro.oleoKm, filtroKm: carro.filtroKm });
+      Object.assign(atual, { modelo: m.id, ano: carro.ano, placa: carro.placa, km: carro.km, fipe: carro.fipe, foto: f.foto || null, cor: carro.cor, renavam: carro.renavam, oleoKm: carro.oleoKm });
     } else {
       E.unidades.push({ id: proximoId('u', [...E.unidades, ...E.removidos]), modelo: m.id, placa: carro.placa, local: D.LOCAIS[0].id,
-        km: carro.km, situacao: 'ok', ano: carro.ano, oleoKm: carro.oleoKm, filtroKm: carro.filtroKm, foto: f.foto || null, fipe: carro.fipe,
+        km: carro.km, situacao: 'ok', ano: carro.ano, oleoKm: carro.oleoKm, foto: f.foto || null, fipe: carro.fipe,
         cor: carro.cor, renavam: carro.renavam, kmData: null });
     }
     const ok = salvar();
@@ -4650,7 +4657,7 @@ window.LOGO_MARCA = {
     E.manutencoes.push({ id: proximoId('mt', E.manutencoes), unidade: u.id, ...registro });
     if (registro.km > u.km) u.km = registro.km; // hodômetro andou desde o último registro
     salvar();
-    log('manutenção registrada', `${u.placa} ${registro.tipo}${registro.filtro ? ' ' + registro.filtro : ''}`);
+    log('manutenção registrada', `${u.placa} ${registro.tipo} ${registro.oleo || registro.filtro || registro.freio || ''}`.trim());
     avisar(t('manutSalva', { p: u.placa }));
     fecharModal();
     desenhar();
@@ -4811,7 +4818,7 @@ window.LOGO_MARCA = {
     const ok = salvar();
     log('km mensal registrado', `${u.placa} ${km}`);
     const hoje = hojeData();
-    const alerta = [['oleo', L.situacaoTroca(u, E.manutencoes, 'oleo', hoje)], ['filtro', L.situacaoFiltros(u, E.manutencoes, hoje)]].find(([, s]) => s.estado === 'passou' || s.estado === 'perto');
+    const alerta = [['oleo', L.situacaoTroca(u, E.manutencoes, 'oleo', hoje)]].find(([, s]) => s.estado === 'passou' || s.estado === 'perto');
     avisar(!ok ? t('erroSalvarAparelho') : alerta
       ? t('kmRegistradoTroca', { p: u.placa, k: fmtNum(km), t: t('curto_' + alerta[0]).toLocaleLowerCase(LOCALE), s: t('tr_' + alerta[1].estado) })
       : t('kmRegistrado', { p: u.placa, k: fmtNum(km) }));
@@ -5314,14 +5321,14 @@ window.LOGO_MARCA = {
     },
     novoCarro() {
       abrirModal({ tipo: 'carro', unidade: null, erros: {}, certezaRemover: false,
-        f: { modelo: '', categoria: D.CATEGORIAS[0], ano: String(anoAtual()), placa: '', tarifa: '', km: '0', fipe: '', cor: '', renavam: '', oleoKm: '', filtroKm: '', foto: null } });
+        f: { modelo: '', categoria: D.CATEGORIAS[0], ano: String(anoAtual()), placa: '', tarifa: '', km: '0', fipe: '', cor: '', renavam: '', oleoKm: '', foto: null } });
     },
     editarCarro(x) {
       const u = unidade(x);
       if (!u) return;
       const m = modelo(u.modelo);
       abrirModal({ tipo: 'carro', unidade: u.id, erros: {}, certezaRemover: false,
-        f: { modelo: m.nome, categoria: m.cat, ano: String(u.ano), placa: u.placa, tarifa: reaisTxt(E.tarifas[m.id]), km: String(u.km), fipe: u.fipe ? reaisTxt(u.fipe) : '', cor: u.cor || '', renavam: u.renavam || '', oleoKm: String(u.oleoKm), filtroKm: String(u.filtroKm), foto: u.foto || null } });
+        f: { modelo: m.nome, categoria: m.cat, ano: String(u.ano), placa: u.placa, tarifa: reaisTxt(E.tarifas[m.id]), km: String(u.km), fipe: u.fipe ? reaisTxt(u.fipe) : '', cor: u.cor || '', renavam: u.renavam || '', oleoKm: String(u.oleoKm), foto: u.foto || null } });
     },
     salvarCarro() { salvarCarro(); },
     fcSemFoto() { UI.modal.f.foto = null; desenharModal(); const b = document.getElementById('fc-foto'); if (b) b.focus({ preventScroll: true }); },
@@ -5339,7 +5346,7 @@ window.LOGO_MARCA = {
     novaManut(x) {
       const u = unidade(x);
       if (!u) return;
-      abrirModal({ tipo: 'manut', unidade: u.id, erros: {}, f: { tipo: 'oleo', filtro: '', data: hojeTxt().slice(0, 10), km: String(u.km), valor: '', obs: '' } });
+      abrirModal({ tipo: 'manut', unidade: u.id, erros: {}, f: { tipo: 'oleo', oleo: '', filtro: '', freio: '', data: hojeTxt().slice(0, 10), km: String(u.km), valor: '', obs: '' } });
     },
     salvarManut() { salvarManut(); },
     apagarManut(x) {
@@ -5582,7 +5589,7 @@ window.LOGO_MARCA = {
     if (c === 'fc.foto') { lerFoto(el.files && el.files[0]); return; }
     if (c === 'fa.arquivo') { escolherAnexo(el.files && el.files[0]); return; }
     if (c === 'arquivoCopia') { lerCopia(el.files && el.files[0]); return; }
-    if ((c === 'fm.tipo' || c === 'fm.filtro') && UI.modal && UI.modal.tipo === 'manut') {
+    if (['fm.tipo', 'fm.filtro', 'fm.oleo', 'fm.freio'].includes(c) && UI.modal && UI.modal.tipo === 'manut') {
       UI.modal.f[c.slice(3)] = el.value;
       UI.modal.erros = {};
       desenharModal();
@@ -5645,11 +5652,11 @@ window.LOGO_MARCA = {
     }
     if (c === 'intervalo') {
       const u = E.unidades.find((x) => x.id === el.dataset.x), tipo = el.dataset.y;
-      if (!u || !['oleo', 'filtro'].includes(tipo)) return;
+      if (!u || tipo !== 'oleo') return; // só o óleo tem intervalo (a coluna de filtros saiu em 24/11)
       const chave = `${u.id}-${tipo}`, km = L.validarIntervalo(el.value);
       if (km === null) { UI.erroIntervalo[chave] = true; desenharDepois(); return; }
       delete UI.erroIntervalo[chave];
-      u[tipo === 'oleo' ? 'oleoKm' : 'filtroKm'] = km;
+      u.oleoKm = km;
       salvar();
       log('intervalo de troca alterado', `${u.placa} ${tipo} ${km}`);
       avisar(t('intervaloSalvo', { p: u.placa, k: t('curto_' + tipo), n: fmtNum(km) }));
