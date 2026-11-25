@@ -636,10 +636,44 @@ body { font-size: 15.5px; -webkit-font-smoothing: antialiased; }
 .botao.verde { color: var(--refletivo); }
 .vista[aria-pressed="true"] { color: var(--refletivo); }
 @media (max-width: 460px) { .marca-logo { height: 30px; } }
-/* filtros: uma linha por filtro dentro do bloco */
-.filtro-linha { display: grid; gap: 2px; padding-block: 6px; border-top: 1px solid var(--linha); }
-.filtro-linha .troca-topo span:first-child { font-weight: 600; font-size: .9rem; }
 .ak-devolver { font-size: 1.05rem; padding: 10px 12px; background: var(--sup-2); border-radius: 8px; }
+
+/* ---------- impressão (24/11/2026): folha A4 com o logo e os dados da empresa ----------
+   Na tela a folha não aparece; no papel só ela aparece. Cores fixas (papel é sempre claro). */
+#folha-impressao { display: none; }
+@media print {
+  @page { size: A4; margin: 14mm 14mm 16mm; }
+  html, body { background: #fff !important; }
+  body > *:not(#folha-impressao) { display: none !important; }
+  #folha-impressao { display: block; color: #14181A; font-size: 10.5pt; line-height: 1.45; }
+  #folha-impressao * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .f-cab { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding-bottom: 10px; border-bottom: 3px solid #F27400; }
+  .f-logo { height: 18mm; width: auto; }
+  .f-logo-txt { font-size: 20pt; font-weight: 800; letter-spacing: .02em; }
+  .f-empresa { display: grid; text-align: right; font-size: 9pt; color: #3d4448; }
+  .f-empresa strong { font-size: 11pt; color: #14181A; }
+  .f-titulo { margin: 14px 0 10px; font-size: 16pt; font-weight: 800; letter-spacing: -.01em; }
+  .f-titulo::before { content: ''; display: inline-block; width: 5px; height: .9em; margin-right: 8px; background: #F27400; vertical-align: -1px; border-radius: 1px; }
+  .f-secao { margin-top: 12px; break-inside: avoid; }
+  .f-secao h2 { margin: 0 0 6px; font-size: 9pt; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: #B35300; }
+  .f-dados { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 18px; margin: 0; }
+  .f-dados div { display: grid; padding: 4px 0; border-bottom: 1px solid #DFE2E3; }
+  .f-dados dt { font-size: 8pt; color: #5E676B; }
+  .f-dados dd { margin: 0; font-weight: 600; }
+  .f-tabela { width: 100%; border-collapse: collapse; font-size: 9.5pt; }
+  .f-tabela th { text-align: left; font-size: 8pt; text-transform: uppercase; letter-spacing: .05em; color: #5E676B; border-bottom: 2px solid #14181A; padding: 4px 6px; }
+  .f-tabela td { padding: 4px 6px; border-bottom: 1px solid #DFE2E3; vertical-align: top; }
+  .f-tabela tr { break-inside: avoid; }
+  .f-tabela tfoot td { font-weight: 800; border-top: 2px solid #14181A; border-bottom: 0; }
+  .f-tabela .num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .f-valor { margin: 18px 0 10px; display: inline-block; padding: 8px 16px; font-size: 20pt; font-weight: 800; border: 2px solid #F27400; border-radius: 6px; }
+  .f-texto { margin: 10px 0; font-size: 11.5pt; line-height: 1.6; text-align: justify; }
+  .f-local { margin: 22px 0 0; text-align: right; }
+  .f-assinaturas { display: flex; justify-content: flex-end; gap: 28px; margin-top: 48px; break-inside: avoid; }
+  .f-assinaturas div { flex: 0 1 48%; display: grid; gap: 4px; text-align: center; font-size: 9.5pt; }
+  .f-assinaturas span { border-top: 1px solid #14181A; }
+  .f-rodape { margin-top: 26px; padding-top: 6px; border-top: 1px solid #DFE2E3; font-size: 8pt; color: #5E676B; text-align: center; }
+}
 
 </style>
 <div id="app" class="app"></div>
@@ -1002,6 +1036,70 @@ body { font-size: 15.5px; -webkit-font-smoothing: antialiased; }
     return { erros, anexo: { nome, data } };
   }
 
+  /* dados da empresa que saem no cabeçalho da impressão (Configurações). Tudo opcional, menos o nome.
+     validarCampoEmpresa(k, texto) -> { erro, valor } (valor já limpo; CNPJ sai formatado 00.000.000/0000-00) */
+  const CAMPOS_EMPRESA = { nome: 60, cnpj: 18, fone: 20, email: 120, endereco: 160, cidade: 60 };
+  function cnpjValido(d) {
+    if (!/^\d{14}$/.test(d) || /^(\d)\1{13}$/.test(d)) return false;
+    const dv = (base) => { let soma = 0, peso = base.length - 7; for (const n of base) { soma += Number(n) * peso; peso = peso === 2 ? 9 : peso - 1; } const r = soma % 11; return r < 2 ? 0 : 11 - r; };
+    return dv(d.slice(0, 12)) === Number(d[12]) && dv(d.slice(0, 13)) === Number(d[13]);
+  }
+  function validarCampoEmpresa(k, texto) {
+    if (!(k in CAMPOS_EMPRESA)) return { erro: 'erroCampoEmpresa', valor: '' };
+    const v = String(texto ?? '').trim().replace(/\s+/g, ' ');
+    if (v.length > CAMPOS_EMPRESA[k]) return { erro: 'erroCampoEmpresa', valor: v };
+    if (k === 'nome' && v.length < 2) return { erro: 'erroNomeEmpresa', valor: v };
+    if (!v) return { erro: null, valor: '' };
+    if (k === 'cnpj') {
+      const d = v.replace(/\D/g, '');
+      if (!cnpjValido(d)) return { erro: 'erroCnpj', valor: v };
+      return { erro: null, valor: `${d.slice(0, 2)}.${d.slice(2, 5)}.${d.slice(5, 8)}/${d.slice(8, 12)}-${d.slice(12)}` };
+    }
+    if (k === 'email' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) return { erro: 'erroEmailEmpresa', valor: v };
+    if (k === 'fone' && !/^[\d\s()+-]{8,20}$/.test(v)) return { erro: 'erroFoneEmpresa', valor: v };
+    return { erro: null, valor: v };
+  }
+
+  /* valor em centavos -> por extenso, pro recibo ("mil e trezentos reais", "um real e cinco centavos").
+     Vai até 999.999.999,99; fora disso devolve '' (o recibo mostra só o número). */
+  const UNID = ['', 'um', 'dois', 'três', 'quatro', 'cinco', 'seis', 'sete', 'oito', 'nove', 'dez', 'onze', 'doze', 'treze', 'quatorze',
+    'quinze', 'dezesseis', 'dezessete', 'dezoito', 'dezenove'];
+  const DEZ = ['', '', 'vinte', 'trinta', 'quarenta', 'cinquenta', 'sessenta', 'setenta', 'oitenta', 'noventa'];
+  const CEM = ['', 'cento', 'duzentos', 'trezentos', 'quatrocentos', 'quinhentos', 'seiscentos', 'setecentos', 'oitocentos', 'novecentos'];
+  function ate999(n) {
+    if (n === 100) return 'cem';
+    const c = Math.floor(n / 100), r = n % 100, p = [];
+    if (c) p.push(CEM[c]);
+    if (r < 20) { if (r) p.push(UNID[r]); } else { p.push(DEZ[Math.floor(r / 10)] + (r % 10 ? ` e ${UNID[r % 10]}` : '')); }
+    return p.join(' e ');
+  }
+  function inteiroPorExtenso(n) {
+    if (n === 0) return 'zero';
+    const grupos = [[1e6, 'milhão', 'milhões'], [1e3, 'mil', 'mil'], [1, '', '']], partes = [];
+    let resto = n;
+    for (const [base, um, varios] of grupos) {
+      const g = Math.floor(resto / base); resto %= base;
+      if (!g) continue;
+      if (base === 1e3) partes.push(g === 1 ? 'mil' : `${ate999(g)} mil`);
+      else if (base === 1e6) partes.push(`${ate999(g)} ${g === 1 ? um : varios}`);
+      else partes.push(ate999(g));
+    }
+    // "e" antes do último grupo quando ele é < 100 ou centena redonda (mil e cem, mil e vinte); senão vírgula/espaço
+    if (partes.length > 1) {
+      const ultimo = n % 1000;
+      const junta = ultimo && (ultimo < 100 || ultimo % 100 === 0) ? ' e ' : ' ';
+      return partes.slice(0, -1).join(' ') + (ultimo ? junta : ' ') + partes[partes.length - 1];
+    }
+    return partes[0];
+  }
+  function valorPorExtenso(centavos) {
+    if (!Number.isInteger(centavos) || centavos < 0 || centavos > 99999999999) return '';
+    const reais = Math.floor(centavos / 100), cent = centavos % 100, p = [];
+    if (reais) p.push(`${inteiroPorExtenso(reais)}${reais % 1e6 === 0 ? ' de' : ''} ${reais === 1 ? 'real' : 'reais'}`);
+    if (cent) p.push(`${inteiroPorExtenso(cent)} ${cent === 1 ? 'centavo' : 'centavos'}`);
+    return p.length ? p.join(' e ') : 'zero real';
+  }
+
   function gastoManutencao(manutencoes, unidadeId) {
     return manutencoes.filter((m) => m.unidade === unidadeId).reduce((s, m) => s + m.valor, 0);
   }
@@ -1325,7 +1423,7 @@ body { font-size: 15.5px; -webkit-font-smoothing: antialiased; }
     unidadesLivres, lojaAberta, preco, cpfValido, validarMotorista, validarTarifa, novoCodigo, multaCancelamento,
     checkinFeito, pontosDe, fidelidade, estadoCarro, indicadores,
     TIPOS_MANUTENCAO, normalizarPlaca, placaValida, validarValor, validarCarro, validarManutencao, validarIntervalo,
-    situacaoTroca, gastoManutencao, FILTROS, OLEOS, OLEOS_DO_MOTOR, FREIOS, qualOleo, situacaoCaucao, validarAcertoCaucao, caucoesGuardadas,
+    situacaoTroca, gastoManutencao, valorPorExtenso, validarCampoEmpresa, CAMPOS_EMPRESA, FILTROS, OLEOS, OLEOS_DO_MOTOR, FREIOS, qualOleo, situacaoCaucao, validarAcertoCaucao, caucoesGuardadas,
     TIPOS_CUSTO, CUSTOS_ANUAIS, validarDinheiro, validarFipe, validarAliquota, ipva, validarCusto, validarFixo, somarMes,
     custoNoMes, custoCobreMes, totalFixos, fixoPorCarro, margemCarro, margemFrota, simular,
     digitoRenavam, renavamValido, diasEntre, diaDaSemana, dataValida, CATEGORIAS_CNH, validarCliente, situacaoCnh,
@@ -1992,6 +2090,90 @@ body { font-size: 15.5px; -webkit-font-smoothing: antialiased; }
     simHoje: 'sua frota hoje',
     simConta: 'Como a conta é feita: custo por carro = custo do carro + custo fixo ÷ número de carros. Ponto de equilíbrio = custo por carro ÷ diária média, arredondado para cima. Economia de IPVA = FIPE média × (particular {b}% − locadora {a}%) × número de carros. O custo fixo total fica o mesmo quando a frota cresce.',
     cfgIpvaTitulo: 'Alíquota do IPVA',
+    // dados da empresa (Configurações) e impressão
+    empTitulo: 'Dados da empresa (saem na impressão)',
+    empAjuda: 'Aparecem no cabeçalho da ficha do cliente, dos recibos, da ficha do carro e do relatório do mês. Campo vazio não aparece na folha. Salva sozinho quando você sai do campo.',
+    emp_nome: 'Nome da empresa',
+    emp_cnpj: 'CNPJ',
+    emp_fone: 'Telefone / WhatsApp',
+    emp_email: 'E-mail',
+    emp_endereco: 'Endereço',
+    emp_cidade: 'Cidade (usada no "local e data" dos recibos)',
+    empSalvo: 'Dados da empresa salvos.',
+    erroCampoEmpresa: 'Texto grande demais.',
+    erroNomeEmpresa: 'Escreva o nome da empresa.',
+    erroCnpj: 'CNPJ inválido. Confira os 14 números.',
+    erroEmailEmpresa: 'E-mail inválido.',
+    erroFoneEmpresa: 'Telefone inválido. Use só números, espaço, parênteses, + e -.',
+    imp_btnFicha: 'Imprimir ficha',
+    imp_btnRecibo: 'Recibo',
+    imp_btnCaucao: 'Recibo da caução',
+    imp_btnAcerto: 'Recibo do acerto',
+    imp_btnImprimir: 'Imprimir',
+    imp_btnRelatorio: 'Imprimir relatório do mês',
+    imp_falhou: 'Não consegui abrir a impressão neste aparelho.',
+    imp_emitido: 'Emitido em {d} às {h} · {n}',
+    imp_cnpj: 'CNPJ',
+    imp_fichaCliente: 'Ficha do cliente · {n}',
+    imp_dadosCliente: 'Dados do cliente',
+    imp_nome: 'Nome',
+    imp_fone: 'Telefone',
+    imp_email: 'E-mail',
+    imp_endereco: 'Endereço',
+    imp_cnh: 'CNH',
+    imp_cnhTxt: 'nº {n} · categoria {c} · validade {d}',
+    imp_contrato: 'Contrato',
+    imp_carro: 'Carro',
+    imp_entrega: 'Entrega do carro',
+    imp_devolucao: 'Devolução',
+    imp_valorSemanal: 'Valor semanal',
+    imp_diaPagamento: 'Dia do pagamento',
+    imp_caucao: 'Caução',
+    imp_valor: 'Valor',
+    imp_recebidaEm: 'Recebida em',
+    imp_situacao: 'Situação',
+    imp_cau_guardada: 'Guardada (acerto no fim do contrato)',
+    imp_cau_acertar: 'Contrato terminado: falta acertar',
+    imp_cau_acertada: 'Acertada',
+    imp_acertoEm: 'Acerto em',
+    imp_descontado: 'Descontado',
+    imp_devolvido: 'Devolvido ao cliente',
+    imp_pagamentos: 'Pagamentos',
+    imp_vencimento: 'Vencimento',
+    imp_pagoEm: 'Pago em',
+    imp_total: 'Total',
+    imp_semPagamentos: 'Nenhum pagamento registrado.',
+    imp_recibo: 'Recibo nº {n}',
+    imp_reciboTxt: 'Recebemos de {n}, CPF {c}, a quantia de {v}{x}, referente ao aluguel semanal do veículo {carro}, com vencimento em {venc}.',
+    imp_pagoNoDia: 'Pagamento recebido em {d}.',
+    imp_reciboCaucao: 'Recibo de caução',
+    imp_caucaoTxt: 'Recebemos de {n}, CPF {c}, a quantia de {v}{x}, a título de caução do aluguel do veículo {carro}.',
+    imp_caucaoRegra: 'A caução fica guardada durante o contrato e é acertada só no fim: devolvida ao cliente, com desconto apenas do que ficar em aberto (multas, avarias ou pagamentos), com o motivo informado.',
+    imp_acertoCaucao: 'Acerto da caução',
+    imp_cliente: 'Cliente',
+    imp_caucaoRecebida: 'Caução recebida',
+    imp_acertoTxt: 'Declaro ter recebido de volta {v}{x}, referente ao acerto da caução acima, e estar de acordo com os descontos informados.',
+    imp_fichaCarro: 'Ficha do carro · {p}',
+    imp_dadosCarro: 'Dados do carro',
+    imp_modelo: 'Modelo',
+    imp_placa: 'Placa',
+    imp_ano: 'Ano',
+    imp_cor: 'Cor',
+    imp_renavam: 'RENAVAM',
+    imp_kmAtual: 'Km atual',
+    imp_fipe: 'Valor FIPE',
+    imp_clienteAtual: 'Cliente atual',
+    imp_nenhum: 'Nenhum',
+    imp_resultadoMes: 'Resultado de {m}',
+    imp_receita: 'Receita',
+    imp_data: 'Data',
+    imp_tipo: 'Tipo',
+    imp_obs: 'Observação',
+    imp_km: 'Km',
+    imp_servico: 'Serviço',
+    imp_manutencao: 'Manutenção',
+    imp_porCarro: 'Por carro',
+    imp_relatorioMes: 'Custos e margem · {m}',
     cfgIpvaAjuda: 'IPVA calculado = valor FIPE do carro × alíquota. Em MG, carro de locadora costuma pagar 1% e carro particular 4%. Confirme a alíquota certa com o contador.',
     cfgAliqLocadora: 'Alíquota de locadora (%)',
     cfgAliqLocadoraAjuda: 'Usada no IPVA calculado, no IPVA estimado da margem e no simulador.',
@@ -2806,7 +2988,7 @@ window.LOGO_MARCA = {
     erroTarifa: {}, erroIntervalo: {}, certezaManut: null,
     // ficha, custos, margem e simulador (dono)
     fichaId: null, mes: hojeTxt().slice(0, 7), sim: simPadrao(), novoFixo: { nome: '', valor: '' }, erroNovoFixo: {},
-    erroFixo: {}, erroConfig: {}, certezaCusto: null, certezaFixo: null,
+    erroFixo: {}, erroConfig: {}, erroEmpresa: {}, certezaCusto: null, certezaFixo: null,
     // clientes, anexos e lembretes (dono)
     kmLembrete: {}, erroKmLembrete: {}, certezaPagamento: null, certezaAnexo: null,
   };
@@ -2859,7 +3041,10 @@ window.LOGO_MARCA = {
         && dataOk(c.data) && int(c.valor) && c.valor >= 0 && typeof c.obs === 'string' && c.obs.length <= 120;
       const fixoOk = (f) => /^fx\d+$/.test(f.id) && typeof f.nome === 'string' && f.nome.length >= 1 && f.nome.length <= 40 && int(f.valor) && f.valor >= 0;
       const aliqOk = (a) => int(a) && a >= 0 && a <= 1000;
-      if (!s.custos.every(custoOk) || !s.fixos.every(fixoOk) || !aliqOk(s.config.aliqLocadora) || !aliqOk(s.config.aliqParticular)) return false;
+      const empresaOk = (e) => e === undefined || (e !== null && typeof e === 'object' && !Array.isArray(e)
+        && Object.entries(e).every(([k, v]) => k in L.CAMPOS_EMPRESA && typeof v === 'string' && v.length <= L.CAMPOS_EMPRESA[k]));
+      if (!s.custos.every(custoOk) || !s.fixos.every(fixoOk) || !aliqOk(s.config.aliqLocadora) || !aliqOk(s.config.aliqParticular)
+        || !empresaOk(s.config.empresa)) return false;
       const pinOk = (p) => num(p.x) && num(p.y) && zonas.includes(p.zona) && D.AVARIAS.includes(p.tipo);
       const vistOk = (v) => !v || (v.pins.every(pinOk) && num(v.comb) && num(v.km) && v.fotos.every((f) => D.FOTOS.includes(f)));
       const assinOk = (a) => a === null
@@ -3780,7 +3965,8 @@ window.LOGO_MARCA = {
             <small>${u.cor ? `${esc(t('fichaCor', { c: u.cor }))} · ` : ''}${u.renavam ? esc(t('fichaRenavam', { r: u.renavam })) : t('fichaSemRenavam')}</small>
             ${cliente ? `<small>${t('colCliente')}: <strong>${esc(cliente.nome)}</strong></small>` : ''}
             <span class="acoes-linha"><span class="selo car-${estado}">${t('car_' + estado)}</span><button class="fino" data-acao="editarCarro" data-x="${u.id}">${t('editarCarro')}</button>
-              <button class="fino" data-acao="abrirAnexos" data-x="${u.id}">${esc(t('anexosN', { n: anexosDe(u.id).length }))}</button></span>
+              <button class="fino" data-acao="abrirAnexos" data-x="${u.id}">${esc(t('anexosN', { n: anexosDe(u.id).length }))}</button>
+              <button class="fino" data-acao="imprimirCarro" data-x="${u.id}">${t('imp_btnImprimir')}</button></span>
           </div>
         </div>
         ${mesNav()}
@@ -3837,6 +4023,7 @@ window.LOGO_MARCA = {
     const melhor = f.carros[0], pior = f.carros[f.carros.length - 1];
     const placaDe = (mg) => E.unidades.find((x) => x.id === mg.unidade).placa;
     return `${mesNav()}
+      <div class="frota-topo"><button class="fino" data-acao="imprimirMargem">${t('imp_btnRelatorio')}</button></div>
       <div class="kpis">
         <div class="kpi"><small>${t('mgReceitaFrota')}</small><b>${esc(moeda(f.receita))}</b></div>
         <div class="kpi"><small>${t('mgCustosFrota')}</small><b>${esc(moeda(f.custoCarro))}</b></div>
@@ -3904,6 +4091,19 @@ window.LOGO_MARCA = {
       <p class="nota">${esc(t('simConta', { a: pctTxt(cfg.aliqLocadora), b: pctTxt(cfg.aliqParticular) }))}</p>`;
   }
 
+  // dados da empresa que saem no cabeçalho de tudo que é impresso; salva campo a campo ao sair dele
+  function empresaBloco() {
+    const e = empresa(), err = UI.erroEmpresa;
+    const tipos = { nome: 'text', cnpj: 'text" inputmode="numeric', fone: 'tel', email: 'email', endereco: 'text', cidade: 'text' };
+    const campo = (k) => `<div class="campo-claro"><label for="emp-${k}">${t('emp_' + k)}</label>
+        <input id="emp-${k}" type="${tipos[k]}" maxlength="${L.CAMPOS_EMPRESA[k]}" autocomplete="off" value="${esc(e[k])}" data-campo="empresa" data-x="${k}" aria-invalid="${!!err[k]}">
+        ${err[k] ? `<p class="erro" role="alert">${t(err[k])}</p>` : ''}</div>`;
+    return `<section class="bloco config"><h2 class="rotulo">${t('empTitulo')}</h2>
+      <p class="nota">${t('empAjuda')}</p>
+      ${Object.keys(L.CAMPOS_EMPRESA).map(campo).join('')}
+    </section>`;
+  }
+
   function configPainel() {
     const cfg = E.config, e = UI.erroConfig;
     const campo = (k, rotulo, ajuda) => `<div class="campo-claro"><label for="cfg-${k}">${t(rotulo)}</label>
@@ -3915,7 +4115,8 @@ window.LOGO_MARCA = {
       ${campo('aliqLocadora', 'cfgAliqLocadora', 'cfgAliqLocadoraAjuda')}
       ${campo('aliqParticular', 'cfgAliqParticular', 'cfgAliqParticularAjuda')}
       <p class="nota">${esc(t('cfgExemplo', { l: moeda(L.ipva(10000000, cfg.aliqLocadora)), p: moeda(L.ipva(10000000, cfg.aliqParticular)) }))}</p>
-    </section>`;
+    </section>
+    ${empresaBloco()}`;
   }
 
   /* ---------- clientes do aluguel semanal, anexos e lembretes (dono) ---------- */
@@ -3996,10 +4197,13 @@ window.LOGO_MARCA = {
       ${cau && cau.estado === 'acertada' ? `<small>${esc(t('cauAcertadaTxt', { v: moeda(cau.valor), r: moeda(cau.devolvido),
         x: cau.descontado ? t('cauDescontoTxt', { d: moeda(cau.descontado), m: cau.motivo }) : '' }))}</small>` : ''}
       ${pagos.length ? `<h3 class="rotulo">${t('clPagamentos')}</h3><ul class="manut-regs">${pagos.map((p) => `<li><span>${esc(t('clPagoEm', { v: dataBR(p.venc), r: moeda(p.valor), p: dataBR(p.data) }))}</span>
+        <button class="fino" data-acao="imprimirRecibo" data-x="${p.id}">${t('imp_btnRecibo')}</button>
         <button class="fino" data-acao="apagarPagamento" data-x="${p.id}">${t(UI.certezaPagamento === p.id ? 'apagarManutCerteza' : 'apagarManut')}</button></li>`).join('')}</ul>` : ''}
       <span class="acoes-linha">${cau && cau.estado === 'acertar' ? `<button class="botao verde" data-acao="acertarCaucao" data-x="${c.id}">${t('acertarCaucao')}</button>` : ''}
         <button class="fino" data-acao="editarCliente" data-x="${c.id}">${t('editarCarro')}</button>
-        <button class="fino" data-acao="abrirAnexos" data-x="${c.id}">${esc(t('anexosN', { n: anexosDe(c.id).length }))}</button></span>
+        <button class="fino" data-acao="abrirAnexos" data-x="${c.id}">${esc(t('anexosN', { n: anexosDe(c.id).length }))}</button>
+        <button class="fino" data-acao="imprimirCliente" data-x="${c.id}">${t('imp_btnFicha')}</button>
+        ${cau ? `<button class="fino" data-acao="imprimirCaucao" data-x="${c.id}">${t(cau.estado === 'acertada' ? 'imp_btnAcerto' : 'imp_btnCaucao')}</button>` : ''}</span>
     </article>`;
   }
 
@@ -4010,8 +4214,152 @@ window.LOGO_MARCA = {
       ${lista.length ? `<div class="manut-lista">${lista.map(cartaoCliente).join('')}</div>` : `<p class="vazio">${t('semClientes')}</p>`}`;
   }
 
+  /* ---------- impressão (ficha do cliente, recibos, ficha do carro, custos do mês) ----------
+     Monta a folha numa <div> que só aparece no papel (@media print) e chama a impressão do aparelho
+     (dá pra salvar em PDF). Cabeçalho com o logo e os dados da empresa de Configurações. */
+  const empresa = () => {
+    const e = { nome: '', cnpj: '', fone: '', email: '', endereco: '', cidade: '', ...(E.config.empresa || {}) };
+    if (!e.nome) e.nome = D.CONFIG.marca;
+    return e;
+  };
+  const fmtDataLonga = new Intl.DateTimeFormat(LOCALE, { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
+  const dataLonga = (d) => fmtDataLonga.format(L.ms(`${d}T00:00`));
+  const fDados = (pares) => `<dl class="f-dados">${pares.filter(([, v]) => v !== '' && v != null)
+    .map(([r, v]) => `<div><dt>${esc(r)}</dt><dd>${esc(v)}</dd></div>`).join('')}</dl>`;
+  const fSecao = (titulo, corpo) => `<section class="f-secao"><h2>${esc(titulo)}</h2>${corpo}</section>`;
+  const fTabela = (cab, linhas, rodape) => `<table class="f-tabela"><thead><tr>${cab.map(([c, num]) => `<th${num ? ' class="num"' : ''}>${esc(c)}</th>`).join('')}</tr></thead>
+    <tbody>${linhas.map((l) => `<tr>${l.map((c, i) => `<td${cab[i][1] ? ' class="num"' : ''}>${esc(c)}</td>`).join('')}</tr>`).join('')}</tbody>
+    ${rodape ? `<tfoot><tr>${rodape.map((c, i) => `<td${cab[i][1] ? ' class="num"' : ''}>${esc(c)}</td>`).join('')}</tr></tfoot>` : ''}</table>`;
+  const fAssinaturas = (nomes) => `<div class="f-assinaturas">${nomes.map((n) => `<div><span></span>${esc(n)}</div>`).join('')}</div>`;
+
+  function folha(titulo, corpo) {
+    const e = empresa(), logo = window.LOGO_MARCA && window.LOGO_MARCA.claro;
+    const contato = [e.fone, e.email].filter(Boolean).join(' · ');
+    const agora = hojeTxt();
+    return `<div class="f-pagina">
+      <header class="f-cab">${logo ? `<img class="f-logo" src="${esc(logo)}" alt="${esc(e.nome)}">` : `<strong class="f-logo-txt">${esc(e.nome)}</strong>`}
+        <div class="f-empresa"><strong>${esc(e.nome)}</strong>${e.cnpj ? `<span>${t('imp_cnpj')} ${esc(e.cnpj)}</span>` : ''}
+          ${e.endereco ? `<span>${esc(e.endereco)}${e.cidade ? ` · ${esc(e.cidade)}` : ''}</span>` : e.cidade ? `<span>${esc(e.cidade)}</span>` : ''}
+          ${contato ? `<span>${esc(contato)}</span>` : ''}</div></header>
+      <h1 class="f-titulo">${esc(titulo)}</h1>
+      ${corpo}
+      <footer class="f-rodape">${esc(t('imp_emitido', { d: dataBR(agora.slice(0, 10)), h: agora.slice(11, 16), n: e.nome }))}</footer>
+    </div>`;
+  }
+
+  function imprimir(titulo, corpo) {
+    let raiz = document.getElementById('folha-impressao');
+    if (!raiz) { raiz = document.createElement('div'); raiz.id = 'folha-impressao'; document.body.appendChild(raiz); }
+    raiz.innerHTML = folha(titulo, corpo);
+    const antes = document.title;
+    document.title = `${titulo} - ${empresa().nome}`; // vira o nome do PDF quando salva
+    window.addEventListener('afterprint', () => { document.title = antes; }, { once: true });
+    log('imprimindo', titulo);
+    const img = raiz.querySelector('img');
+    const vai = () => { try { window.print(); } catch (erro) { console.error('[volante] impressão falhou', erro); avisar(t('imp_falhou')); } };
+    if (img && !img.complete) { img.onload = vai; img.onerror = vai; } else setTimeout(vai, 30);
+  }
+
+  function imprimirCliente(c) {
+    const cau = L.situacaoCaucao(c, hojeData());
+    const pagos = E.recebimentos.filter((p) => p.cliente === c.id).sort((a, b) => a.venc.localeCompare(b.venc));
+    const total = pagos.reduce((s, p) => s + p.valor, 0);
+    const corpo = fSecao(t('imp_dadosCliente'), fDados([[t('imp_nome'), c.nome], [t('cpf'), c.cpf], [t('imp_fone'), c.fone], [t('imp_email'), c.email],
+      [t('imp_endereco'), c.endereco], [t('imp_cnh'), t('imp_cnhTxt', { n: c.cnhNumero, c: c.cnhCategoria, d: dataBR(c.cnhValidade) })]]))
+      + fSecao(t('imp_contrato'), c.unidade ? fDados([[t('imp_carro'), carroTxt(c.unidade)], [t('imp_entrega'), c.entrega ? dataBR(c.entrega) : ''],
+        [t('imp_devolucao'), c.devolucao ? dataBR(c.devolucao) : t('clSemDevolucao')], [t('imp_valorSemanal'), moeda(c.valorSemanal)],
+        [t('imp_diaPagamento'), c.diaVenc === null ? '' : t('sem_' + c.diaVenc)]]) : `<p>${esc(t('clSemCarro'))}</p>`)
+      + (cau ? fSecao(t('imp_caucao'), fDados([[t('imp_valor'), moeda(cau.valor)], [t('imp_recebidaEm'), c.caucaoData ? dataBR(c.caucaoData) : ''],
+        [t('imp_situacao'), t('imp_cau_' + cau.estado)],
+        ...(cau.estado === 'acertada' ? [[t('imp_acertoEm'), dataBR(cau.data)], [t('imp_descontado'), cau.descontado ? `${moeda(cau.descontado)} (${cau.motivo})` : moeda(0)],
+          [t('imp_devolvido'), moeda(cau.devolvido)]] : [])])) : '')
+      + fSecao(t('imp_pagamentos'), pagos.length
+        ? fTabela([[t('imp_vencimento')], [t('imp_pagoEm')], [t('imp_valor'), true]], pagos.map((p) => [dataBR(p.venc), dataBR(p.data), moeda(p.valor)]),
+          [t('imp_total'), '', moeda(total)])
+        : `<p>${esc(t('imp_semPagamentos'))}</p>`)
+      + fAssinaturas([c.nome, empresa().nome]);
+    imprimir(t('imp_fichaCliente', { n: c.nome }), corpo);
+  }
+
+  // local e data por extenso no fim do recibo ("Belo Horizonte, 24 de novembro de 2026")
+  const localData = (d) => { const e = empresa(); return `${e.cidade ? `${e.cidade}, ` : ''}${dataLonga(d)}`; };
+
+  function imprimirRecibo(p) {
+    const c = clienteId(p.cliente);
+    if (!c) return;
+    const extenso = L.valorPorExtenso(p.valor);
+    const corpo = `<p class="f-valor">${esc(moeda(p.valor))}</p>
+      <p class="f-texto">${t('imp_reciboTxt', { n: `<strong>${esc(c.nome)}</strong>`, c: esc(c.cpf), v: `<strong>${esc(moeda(p.valor))}</strong>`,
+        x: extenso ? ` (${esc(extenso)})` : '', carro: esc(carroTxt(p.unidade || c.unidade)), venc: esc(dataBR(p.venc)) })}</p>
+      <p class="f-texto">${esc(t('imp_pagoNoDia', { d: dataBR(p.data) }))}</p>
+      <p class="f-local">${esc(localData(p.data))}</p>
+      ${fAssinaturas([empresa().nome])}`;
+    imprimir(t('imp_recibo', { n: p.id.replace(/\D/g, '') }), corpo);
+  }
+
+  function imprimirCaucao(c) {
+    const cau = L.situacaoCaucao(c, hojeData());
+    if (!cau) return;
+    const e = empresa();
+    if (cau.estado !== 'acertada') {
+      const extenso = L.valorPorExtenso(cau.valor);
+      const corpo = `<p class="f-valor">${esc(moeda(cau.valor))}</p>
+        <p class="f-texto">${t('imp_caucaoTxt', { n: `<strong>${esc(c.nome)}</strong>`, c: esc(c.cpf), v: `<strong>${esc(moeda(cau.valor))}</strong>`,
+          x: extenso ? ` (${esc(extenso)})` : '', carro: esc(c.unidade ? carroTxt(c.unidade) : '–') })}</p>
+        <p class="f-texto">${esc(t('imp_caucaoRegra'))}</p>
+        <p class="f-local">${esc(localData(c.caucaoData || hojeData()))}</p>
+        ${fAssinaturas([e.nome])}`;
+      imprimir(t('imp_reciboCaucao'), corpo);
+      return;
+    }
+    const extenso = L.valorPorExtenso(cau.devolvido);
+    const corpo = fDados([[t('imp_cliente'), `${c.nome} · ${t('cpf')} ${c.cpf}`], [t('imp_caucaoRecebida'), `${moeda(cau.valor)}${c.caucaoData ? ` · ${dataBR(c.caucaoData)}` : ''}`],
+      [t('imp_descontado'), cau.descontado ? `${moeda(cau.descontado)} (${cau.motivo})` : moeda(0)], [t('imp_devolvido'), moeda(cau.devolvido)]])
+      + `<p class="f-texto">${t('imp_acertoTxt', { n: `<strong>${esc(c.nome)}</strong>`, v: `<strong>${esc(moeda(cau.devolvido))}</strong>`, x: extenso ? ` (${esc(extenso)})` : '' })}</p>
+      <p class="f-local">${esc(localData(cau.data))}</p>
+      ${fAssinaturas([c.nome, e.nome])}`;
+    imprimir(t('imp_acertoCaucao'), corpo);
+  }
+
+  function imprimirCarro(u) {
+    const m = modelo(u.modelo), mg = L.margemCarro(E, u, UI.mes), cliente = L.clienteDoCarro(E, u.id, hojeData());
+    const custos = E.custos.filter((c) => c.unidade === u.id).sort((a, b) => b.data.localeCompare(a.data));
+    const manut = E.manutencoes.filter((r) => r.unidade === u.id).sort((a, b) => b.data.localeCompare(a.data) || b.km - a.km);
+    const contaLinhas = [
+      [t('imp_receita'), moeda(mg.receita)], [t('mgManutencao'), moeda(-mg.manutencao || 0)], [t('mgCustos'), moeda(-mg.custos || 0)],
+      ...(mg.ipvaEstimado ? [[t('mgIpvaEstimado'), moeda(-mg.ipvaEstimado)]] : []), [t('mgFixo'), moeda(-mg.fixo || 0)],
+      [t('mgLucro'), moeda(mg.lucro || 0)], [t('mgMargem'), margemTxt(mg.margem)]];
+    const corpo = fSecao(t('imp_dadosCarro'), fDados([[t('imp_modelo'), m.nome], [t('imp_placa'), u.placa], [t('imp_ano'), String(u.ano)], [t('imp_cor'), u.cor || ''],
+      [t('imp_renavam'), u.renavam || ''], [t('imp_kmAtual'), `${fmtNum(u.km)} km`], [t('imp_fipe'), u.fipe ? moeda(u.fipe) : ''],
+      [t('imp_clienteAtual'), cliente ? cliente.nome : t('imp_nenhum')]]))
+      + fSecao(t('imp_resultadoMes', { m: nomeMes(UI.mes) }), fDados(contaLinhas))
+      + fSecao(t('fichaCustos'), custos.length ? fTabela([[t('imp_data')], [t('imp_tipo')], [t('imp_obs')], [t('imp_valor'), true]],
+        custos.map((c) => [dataBR(c.data), t('tc_' + c.tipo), c.obs || '', moeda(c.valor)]), [t('imp_total'), '', '', moeda(custos.reduce((s, c) => s + c.valor, 0))])
+        : `<p>${esc(t('semCustos'))}</p>`)
+      + fSecao(t('imp_manutencao'), manut.length ? fTabela([[t('imp_data')], [t('imp_km'), true], [t('imp_servico')], [t('imp_obs')], [t('imp_valor'), true]],
+        manut.map((r) => [dataBR(r.data), fmtNum(r.km), nomeManut(r), r.obs || '', moeda(r.valor)]), [t('imp_total'), '', '', '', moeda(L.gastoManutencao(E.manutencoes, u.id))])
+        : `<p>${esc(t('semManutRegistro'))}</p>`);
+    imprimir(t('imp_fichaCarro', { p: u.placa }), corpo);
+  }
+
+  function imprimirMargem() {
+    const f = L.margemFrota(E, UI.mes);
+    const linhas = f.carros.map((mg, i) => {
+      const u = E.unidades.find((x) => x.id === mg.unidade);
+      return [`${i + 1}º`, `${u.placa} · ${modelo(u.modelo).nome}`, moeda(mg.receita), moeda(mg.custoCarro), moeda(mg.fixo), moeda(mg.lucro), margemTxt(mg.margem)];
+    });
+    const corpo = fDados([[t('mgReceitaFrota'), moeda(f.receita)], [t('mgCustosFrota'), moeda(f.custoCarro)], [t('mgFixoFrota'), moeda(f.fixo)],
+      [t('mgLucro'), moeda(f.lucro)], [t('mgMargem'), margemTxt(f.margem)]])
+      + fSecao(t('imp_porCarro'), linhas.length ? fTabela([[''], [t('colCarro')], [t('mgColReceita'), true], [t('mgColCustos'), true], [t('mgColFixo'), true],
+        [t('mgLucro'), true], [t('mgMargem'), true]], linhas, ['', t('imp_total'), moeda(f.receita), moeda(f.custoCarro), moeda(f.fixo), moeda(f.lucro), margemTxt(f.margem)])
+        : `<p>${esc(t('semCarros'))}</p>`)
+      + fSecao(t('fixosTitulo'), E.fixos.length ? fTabela([[t('imp_nome')], [t('imp_valor'), true]], E.fixos.map((x) => [x.nome, moeda(x.valor)]),
+        [t('imp_total'), moeda(L.totalFixos(E.fixos))]) : '');
+    imprimir(t('imp_relatorioMes', { m: nomeMes(UI.mes) }), corpo);
+  }
+
   function painel() {
-    const abas = [['hoje', 'abaHoje'], ['quadro', 'abaQuadro'], ['reservas', 'abaReservasPainel'], ['frota', 'abaFrota'], ['clientes', 'abaClientes'], ['ficha', 'abaFicha'], ['manut', 'abaManut'],
+    const abas =[['hoje', 'abaHoje'], ['quadro', 'abaQuadro'], ['reservas', 'abaReservasPainel'], ['frota', 'abaFrota'], ['clientes', 'abaClientes'], ['ficha', 'abaFicha'], ['manut', 'abaManut'],
       ['margem', 'abaMargem'], ['simulador', 'abaSimulador'], ['precos', 'abaPrecos'], ['config', 'abaConfig']]
       .filter(([id]) => D.CONFIG.reservas || (id !== 'quadro' && id !== 'reservas'));
     if (!abas.some(([id]) => id === UI.abaPainel)) UI.abaPainel = 'hoje';
@@ -5235,6 +5583,11 @@ window.LOGO_MARCA = {
       irPara('busca');
     },
     abaPainel(x) { UI.abaPainel = x; desenhar(); },
+    imprimirCliente(x) { const c = clienteId(x); if (c) imprimirCliente(c); },
+    imprimirCaucao(x) { const c = clienteId(x); if (c) imprimirCaucao(c); },
+    imprimirRecibo(x) { const p = E.recebimentos.find((r) => r.id === x); if (p) imprimirRecibo(p); },
+    imprimirCarro(x) { const u = E.unidades.find((r) => r.id === x); if (u) imprimirCarro(u); },
+    imprimirMargem() { imprimirMargem(); },
     lojaPainel(x) { UI.lojaPainel = x; desenhar(); },
     filtroReservas(x) { UI.filtroReservas = x; desenhar(); },
     abrirReserva(x) { abrirModal({ tipo: 'reserva', id: x }); },
@@ -5621,6 +5974,21 @@ window.LOGO_MARCA = {
       salvar();
       log('custo fixo alterado', `${f.nome} ${f.valor}`);
       avisar(t('fixoSalvo', { n: f.nome, v: moeda(f.valor) }));
+      desenharDepois();
+      return;
+    }
+    if (c === 'empresa') {
+      const k = el.dataset.x, r = L.validarCampoEmpresa(k, el.value);
+      if (!(k in L.CAMPOS_EMPRESA)) return;
+      if (r.erro) { UI.erroEmpresa[k] = r.erro; desenharDepois(); return; }
+      delete UI.erroEmpresa[k];
+      const atual = { ...(E.config.empresa || {}) };
+      if ((atual[k] || '') === r.valor) { desenharDepois(); return; }
+      atual[k] = r.valor;
+      E.config = { ...E.config, empresa: atual };
+      salvar();
+      log('dados da empresa alterados', k);
+      avisar(t('empSalvo'));
       desenharDepois();
       return;
     }
