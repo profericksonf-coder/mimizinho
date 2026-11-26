@@ -938,18 +938,52 @@ body { font-size: 15.5px; -webkit-font-smoothing: antialiased; }
       if (caucao === null) { erros.caucao = 'erroCaucao'; caucao = 0; }
       caucaoData = String(f.caucaoData || '');
       if (!dataValida(caucaoData)) erros.caucaoData = 'erroDataManut';
-      else if (caucaoData > opc.hoje) erros.caucaoData = 'erroDataManutFutura';
+      // de uma vez: já recebida, não pode ser no futuro; parcelada: a 1ª parcela pode ser combinada pra depois
+      else if (caucaoData > opc.hoje && String(f.caucaoForma || 'vista') === 'vista') erros.caucaoData = 'erroDataManutFutura';
     }
     if (f.caucaoAcertada && caucao !== f.caucaoAcertada) erros.caucao = 'erroCaucaoAcertada';
+    // caução parcelada (26/11/2026): f.caucaoForma = 'vista' (ou vazio) | 'dia' | 'semana' | 'mes'; a 1ª parcela é em caucaoData
+    let caucaoParc = null;
+    const forma = String(f.caucaoForma || 'vista');
+    if (caucao > 0 && forma !== 'vista') {
+      if (!PERIODOS_CAUCAO.includes(forma)) erros.caucaoForma = 'erroCaucaoForma';
+      const n = /^\d{1,3}$/.test(String(f.caucaoParcelas ?? '').trim()) ? Number(String(f.caucaoParcelas).trim()) : NaN;
+      if (!(n >= 2 && n <= MAX_PARCELAS_CAUCAO)) erros.caucaoParcelas = 'erroCaucaoParcelas';
+      else if (Math.floor(caucao / n) < 100) erros.caucaoParcelas = 'erroCaucaoParcelaMinima';
+      if (!erros.caucaoForma && !erros.caucaoParcelas) caucaoParc = { n, per: forma };
+    }
     return {
       erros,
       cliente: {
         nome, cpf, rg, cnhNumero, cnhCategoria, cnhValidade, endereco, fone, email,
         antecedentes: { ok: antOk, data: antOk ? antData : '', obs: antObs },
         unidade, entrega: unidade ? entrega : '', devolucao: unidade ? devolucao : '', diaVenc, valorSemanal: valorSemanal || 0,
-        caucao, caucaoData,
+        caucao, caucaoData, caucaoParc,
       },
     };
+  }
+
+  const PERIODOS_CAUCAO = ['dia', 'semana', 'mes'];
+  const MAX_PARCELAS_CAUCAO = 90;
+
+  // mesmo dia do mês, n meses depois; se o mês não tem esse dia (31 em fevereiro), cai no último dia dele
+  function somarMeses(data, n) {
+    const [a, m, d] = data.split('-').map(Number);
+    const mesAlvo = m - 1 + n, ano = a + Math.floor(mesAlvo / 12), mes = ((mesAlvo % 12) + 12) % 12;
+    const ultimo = new Date(Date.UTC(ano, mes + 1, 0)).getUTCDate();
+    return `${ano}-${doisDig(mes + 1)}-${doisDig(Math.min(d, ultimo))}`;
+  }
+
+  /* parcelas da caução parcelada: [{ n, data, valor }] (valor em centavos; os centavos que sobram da divisão vão na última).
+     null = sem caução ou caução de uma vez. Sem data da 1ª parcela, as datas saem vazias. */
+  function parcelasCaucao(c) {
+    if (!(c.caucao > 0) || !c.caucaoParc) return null;
+    const { n, per } = c.caucaoParc, base = Math.floor(c.caucao / n), ini = dataValida(c.caucaoData || '') ? c.caucaoData : '';
+    return Array.from({ length: n }, (_, i) => ({
+      n: i + 1,
+      data: !ini ? '' : per === 'mes' ? somarMeses(ini, i) : somarDias(ini, i * (per === 'semana' ? 7 : 1)),
+      valor: i === n - 1 ? c.caucao - base * (n - 1) : base,
+    }));
   }
 
   /* situação da caução do cliente. null = sem caução.
@@ -1524,7 +1558,7 @@ body { font-size: 15.5px; -webkit-font-smoothing: antialiased; }
     unidadesLivres, lojaAberta, preco, cpfValido, validarMotorista, validarTarifa, novoCodigo, multaCancelamento,
     checkinFeito, pontosDe, fidelidade, estadoCarro, indicadores,
     TIPOS_MANUTENCAO, normalizarPlaca, placaValida, validarValor, validarCarro, validarManutencao, validarIntervalo,
-    situacaoTroca, gastoManutencao, valorPorExtenso, validarCampoEmpresa, CAMPOS_EMPRESA, FILTROS, OLEOS, OLEOS_DO_MOTOR, FREIOS, qualOleo, situacaoCaucao, validarAcertoCaucao, caucoesGuardadas,
+    situacaoTroca, gastoManutencao, valorPorExtenso, validarCampoEmpresa, CAMPOS_EMPRESA, FILTROS, OLEOS, OLEOS_DO_MOTOR, FREIOS, qualOleo, situacaoCaucao, validarAcertoCaucao, caucoesGuardadas, parcelasCaucao, somarMeses, PERIODOS_CAUCAO, MAX_PARCELAS_CAUCAO,
     PRAZO_PADRAO_DIAS, valorNaSemana, inicioPeriodo, validarRenovacao, CAMPOS_CONTRATO, CONTRATO_PADRAO, validarCampoContrato, contratoCfg,
     TIPOS_CUSTO, CUSTOS_ANUAIS, validarDinheiro, validarFipe, validarAliquota, ipva, validarCusto, validarFixo, somarMes,
     custoNoMes, custoCobreMes, totalFixos, fixoPorCarro, margemCarro, margemFrota, simular,
@@ -2346,11 +2380,26 @@ body { font-size: 15.5px; -webkit-font-smoothing: antialiased; }
     fl_valorSemanal: 'Valor semanal (R$)',
     fl_caucaoTitulo: 'Caução',
     fl_caucao: 'Valor da caução (R$)',
-    fl_caucaoAjuda: 'Garantia paga de uma vez no começo. Deixe em branco se não teve caução.',
+    fl_caucaoAjuda: 'Garantia acertada no fim do contrato. Deixe em branco se não teve caução.',
     fl_caucaoData: 'Recebida em',
     fl_caucaoTravada: 'A caução já foi acertada ({d}); o valor não muda mais.',
     erroCaucao: 'Valor em reais, de R$ 1 a R$ 100.000 (ex.: 1.300).',
     erroCaucaoAcertada: 'A caução já foi acertada; o valor não pode mudar.',
+    // caução parcelada (26/11/2026)
+    fl_caucaoForma: 'Como a caução é paga',
+    fl_caucaoVista: 'De uma vez',
+    fl_caucaoPorDia: 'Parcelada por dia',
+    fl_caucaoPorSemana: 'Parcelada por semana',
+    fl_caucaoPorMes: 'Parcelada por mês',
+    fl_caucaoParcelas: 'Número de parcelas',
+    fl_caucaoData1: '1ª parcela em',
+    erroCaucaoForma: 'Escolha como a caução é paga.',
+    erroCaucaoParcelas: 'Diga em quantas parcelas, de 2 a 90.',
+    erroCaucaoParcelaMinima: 'Cada parcela precisa ser de pelo menos R$ 1.',
+    parc_dia: 'diárias', parc_semana: 'semanais', parc_mes: 'mensais',
+    imp_caucaoParcelada: 'Caução parcelada',
+    imp_caucaoParcTxt: '{n}, CPF {c}, pagará a caução de {v}{x} do aluguel do veículo {carro} em {q} parcelas {p}, conforme a tabela abaixo. Cada parcela paga é anotada e rubricada na linha dela.',
+    imp_parcela: 'Parcela', imp_vencimento: 'Vencimento', imp_pagoEm: 'Pago em', imp_rubrica: 'Rubrica',
     cau_guardada: 'Caução {v} guardada',
     cau_acertar: 'Acertar caução de {v}',
     cau_acertada: 'Caução acertada em {d}',
@@ -3284,6 +3333,8 @@ window.LOGO_MARCA = {
         && (c.caucao === undefined || (int(c.caucao) && c.caucao >= 0)) && (c.caucaoData === undefined || dataOuVazio(c.caucaoData))
         && (c.caucaoAcerto === undefined || c.caucaoAcerto === null || (dataOk(c.caucaoAcerto.data) && int(c.caucaoAcerto.descontado)
           && c.caucaoAcerto.descontado >= 0 && int(c.caucaoAcerto.devolvido) && c.caucaoAcerto.devolvido >= 0 && txt(c.caucaoAcerto.motivo, 200)))
+        && (c.caucaoParc === undefined || c.caucaoParc === null || (int(c.caucaoParc.n) && c.caucaoParc.n >= 2 && c.caucaoParc.n <= L.MAX_PARCELAS_CAUCAO
+          && L.PERIODOS_CAUCAO.includes(c.caucaoParc.per)))
         && (c.rg === undefined || txt(c.rg, 20))
         && (c.renovacoes === undefined || (Array.isArray(c.renovacoes) && c.renovacoes.every((r) => r && dataOk(r.em) && dataOk(r.desde) && dataOk(r.devolucao)
           && r.antes && dataOuVazio(r.antes.devolucao) && int(r.antes.valor) && r.antes.valor >= 0)));
@@ -4474,6 +4525,7 @@ window.LOGO_MARCA = {
       </div>
       <small>${esc(t('cnhTxt', { c: c.cnhCategoria, d: dataBR(c.cnhValidade) }))} · nº ${esc(c.cnhNumero)}</small>
       ${a.obs ? `<small>${esc(a.obs)}</small>` : ''}
+      ${cau && c.caucaoParc ? `<small>${esc(t('imp_caucaoParcelada'))}: ${esc(parcelasTxt(c))}</small>` : ''}
       ${c.unidade ? `<small><strong>${esc(t('clCarro', { c: carroTxt(c.unidade) }))}</strong></small>
         <small>${esc(t('clPeriodo', { e: dataBR(c.entrega), d: c.devolucao ? dataBR(c.devolucao) : t('clSemDevolucao') }))}</small>
         <small>${esc(t('clValor', { v: moeda(c.valorSemanal), d: t('sem_' + c.diaVenc).toLocaleLowerCase(LOCALE) }))}</small>` : `<small>${t('clSemCarro')}</small>`}
@@ -4562,7 +4614,8 @@ window.LOGO_MARCA = {
       + fSecao(t('imp_contrato'), c.unidade ? fDados([[t('imp_carro'), carroTxt(c.unidade)], [t('imp_entrega'), c.entrega ? dataBR(c.entrega) : ''],
         [t('imp_devolucao'), c.devolucao ? dataBR(c.devolucao) : t('clSemDevolucao')], [t('imp_valorSemanal'), moeda(c.valorSemanal)],
         [t('imp_diaPagamento'), c.diaVenc === null ? '' : t('sem_' + c.diaVenc)]]) : `<p>${esc(t('clSemCarro'))}</p>`)
-      + (cau ? fSecao(t('imp_caucao'), fDados([[t('imp_valor'), moeda(cau.valor)], [t('imp_recebidaEm'), c.caucaoData ? dataBR(c.caucaoData) : ''],
+      + (cau ? fSecao(t('imp_caucao'), fDados([[t('imp_valor'), moeda(cau.valor)],
+        c.caucaoParc ? [t('imp_caucaoParcelada'), parcelasTxt(c)] : [t('imp_recebidaEm'), c.caucaoData ? dataBR(c.caucaoData) : ''],
         [t('imp_situacao'), t('imp_cau_' + cau.estado)],
         ...(cau.estado === 'acertada' ? [[t('imp_acertoEm'), dataBR(cau.data)], [t('imp_descontado'), cau.descontado ? `${moeda(cau.descontado)} (${cau.motivo})` : moeda(0)],
           [t('imp_devolvido'), moeda(cau.devolvido)]] : [])])) : '')
@@ -4594,6 +4647,21 @@ window.LOGO_MARCA = {
     const cau = L.situacaoCaucao(c, hojeData());
     if (!cau) return;
     const e = empresa();
+    const ps = cau.estado !== 'acertada' ? L.parcelasCaucao(c) : null;
+    if (ps) {
+      const extenso = L.valorPorExtenso(cau.valor);
+      const corpo = `<p class="f-valor">${esc(moeda(cau.valor))}</p>
+        <p class="f-texto">${t('imp_caucaoParcTxt', { n: `<strong>${esc(c.nome)}</strong>`, c: esc(c.cpf), v: `<strong>${esc(moeda(cau.valor))}</strong>`,
+          x: extenso ? ` (${esc(extenso)})` : '', carro: esc(c.unidade ? carroTxt(c.unidade) : '–'), q: ps.length, p: esc(t('parc_' + c.caucaoParc.per)) })}</p>
+        <table class="f-tabela f-grade"><thead><tr><th>${t('imp_parcela')}</th><th>${t('imp_vencimento')}</th><th>${t('imp_valor')}</th><th>${t('imp_pagoEm')}</th><th>${t('imp_rubrica')}</th></tr></thead>
+          <tbody>${ps.map((p) => `<tr><td>${p.n}ª</td><td>${p.data ? esc(dataBR(p.data)) : ''}</td><td>${esc(moeda(p.valor))}</td><td></td><td></td></tr>`).join('')}</tbody></table>
+        <p class="f-texto">${esc(t('imp_caucaoRegra'))}</p>
+        <p class="f-local">${esc(localData(c.caucaoData || hojeData()))}</p>
+        ${fAssinaturas([c.nome, e.nome])}`;
+      log('controle da caução parcelada gerado', `${c.id} ${ps.length} parcelas`);
+      imprimir(t('imp_caucaoParcelada'), corpo);
+      return;
+    }
     if (cau.estado !== 'acertada') {
       const extenso = L.valorPorExtenso(cau.valor);
       const corpo = `<p class="f-valor">${esc(moeda(cau.valor))}</p>
@@ -4617,6 +4685,21 @@ window.LOGO_MARCA = {
   /* ---------- contrato e termo aditivo (25/11/2026) ----------
      Partes: a locadora de Configurações › Contrato (em branco = nome e CNPJ da empresa). Campo sem dado sai com linha pra preencher à mão. */
   const LINHA = '____________________';
+  // caução parcelada em texto: "12 parcelas diárias de R$ 100,00 (a última de R$ 100,40), de 26/11/2026 a 07/12/2026"
+  function parcelasTxt(c) {
+    const ps = L.parcelasCaucao(c);
+    if (!ps) return '';
+    const p1 = ps[0], ult = ps[ps.length - 1];
+    return `${ps.length} parcelas ${t('parc_' + c.caucaoParc.per)} de ${moeda(p1.valor)}${ult.valor !== p1.valor ? ` (a última de ${moeda(ult.valor)})` : ''}`
+      + (p1.data ? `, de ${dataBR(p1.data)} a ${dataBR(ult.data)}` : '');
+  }
+  // prévia no formulário do cliente, enquanto ele digita (vazio se ainda falta dado)
+  function resumoParcelasForm(f) {
+    if (!f.caucaoForma || f.caucaoForma === 'vista' || !L.PERIODOS_CAUCAO.includes(f.caucaoForma)) return '';
+    const caucao = L.validarDinheiro(f.caucao, 100, 10000000), n = Number(String(f.caucaoParcelas || '').trim());
+    if (caucao === null || !Number.isInteger(n) || n < 2 || n > L.MAX_PARCELAS_CAUCAO || Math.floor(caucao / n) < 100) return '';
+    return `${parcelasTxt({ caucao, caucaoParc: { n, per: f.caucaoForma }, caucaoData: f.caucaoData })}.`;
+  }
   const ouLinha = (v) => (v ? esc(v) : LINHA);
   const extensoNum = (n) => (L.valorPorExtenso(n * 100) || '').replace(/ reais?$/, '');
   function partesContrato() {
@@ -4637,6 +4720,7 @@ window.LOGO_MARCA = {
   function imprimirContrato(c, op) {
     const P = partesContrato(), k = P.k, u = unidade(c.unidade), mod = u && modelo(u.modelo);
     const ini = L.inicioPeriodo(c), fim = c.devolucao, dias = fim ? L.diasEntre(ini, fim) : null;
+    const parc = c.caucao > 0 ? parcelasTxt(c) : '';
     const diaVenc = c.diaVenc === null || c.diaVenc === undefined ? LINHA : `toda ${t('sem_' + c.diaVenc).toLocaleLowerCase(LOCALE)}`;
     const marca = (sim) => `(${sim ? 'x' : ' '})`;
     const linhaQ = (rotulo, html) => `<tr><th>${esc(rotulo)}</th><td>${html}</td></tr>`;
@@ -4648,12 +4732,13 @@ window.LOGO_MARCA = {
       ${linhaQ('Endereço / contato', `${esc(c.endereco)} · ${esc(c.fone)}${c.email ? ` · ${esc(c.email)}` : ''}`)}
       ${linhaQ('Veículo', u ? `${esc(mod ? mod.nome : '')}${u.ano ? ` ${esc(String(u.ano))}` : ''}${u.cor ? ` · ${esc(u.cor)}` : ''} · Placa: <strong>${esc(u.placa)}</strong> · Renavam: ${ouLinha(u.renavam)}` : LINHA)}
       ${linhaQ('Prazo', `Retirada: <strong>${esc(dataBR(ini))}</strong> às ${op.horaRet ? esc(op.horaRet) : '____:____'} · Devolução: <strong>${fim ? esc(dataBR(fim)) : LINHA}</strong> às ${op.horaDev ? esc(op.horaDev) : '____:____'}${dias ? ` (${dias} dias)` : ''}`)}
-      ${linhaQ('Valores', `Semana: <strong>${esc(moeda(c.valorSemanal))}</strong> · Caução: <strong>${c.caucao > 0 ? esc(moeda(c.caucao)) : 'sem caução'}</strong> · Franquia: ${esc(fmtNum(Number(k.franquiaKm)))} km`)}
+      ${linhaQ('Valores', `Semana: <strong>${esc(moeda(c.valorSemanal))}</strong> · Caução: <strong>${c.caucao > 0 ? esc(moeda(c.caucao)) : 'sem caução'}</strong>${parc ? ` (${esc(parc)})` : ''} · Franquia: ${esc(fmtNum(Number(k.franquiaKm)))} km`)}
       ${linhaQ('Pagamento', `Vencimento: ${esc(diaVenc)} · Forma: ${ouLinha(k.formaPagamento)}`)}
       ${linhaQ('Uso autorizado', `Aplicativo de transporte: ${marca(op.app === 'sim')} Sim ${marca(op.app === 'nao')} Não · Região: ${ouLinha(k.regiao)}`)}
     </tbody></table>`;
     const clausulas = D.CONTRATO_CLAUSULAS.map((cl) => `<section class="f-clausula"><h3>${esc(cl.t)}</h3>
-      ${cl.p.map((x) => paragrafo(x.replace('{diasCaucao}', `${k.diasCaucao} (${extensoNum(Number(k.diasCaucao))})`))).join('')}</section>`).join('');
+      ${cl.p.map((x) => paragrafo(x.replace('{diasCaucao}', `${k.diasCaucao} (${extensoNum(Number(k.diasCaucao))})`))).join('')}
+      ${parc && /\(CAUÇÃO\)/.test(cl.t) ? paragrafo(`Parágrafo Quinto: Por acordo entre as partes, e em exceção ao pagamento integral antes da retirada previsto nesta cláusula e no seu Parágrafo Primeiro, a caução de ${moeda(c.caucao)} será paga em ${parc}, conforme o Anexo II.`) : ''}</section>`).join('');
     const vistoria = `<section class="f-quebra"><h2 class="f-anexo">Anexo I – Termo de entrega e vistoria</h2>
       <p class="f-clausula-p">Preencher conjuntamente na retirada e na devolução. Recomenda-se registrar fotografias e vídeos datados.</p>
       ${`<table class="f-tabela f-grade"><thead><tr><th>Item</th><th>Retirada</th><th>Devolução</th><th>Observações</th></tr></thead>
@@ -4668,7 +4753,7 @@ window.LOGO_MARCA = {
       <table class="f-tabela f-grade"><thead><tr><th>Descrição</th><th>Condição acordada</th></tr></thead><tbody>
         ${linhaA('Valor e periodicidade da locação', `${esc(moeda(c.valorSemanal))} por semana${fim ? `, de ${esc(dataBR(ini))} a ${esc(dataBR(fim))} (${dias} dias)` : `, a partir de ${esc(dataBR(ini))}`}`)}
         ${linhaA('Vencimento e forma de pagamento', `${esc(diaVenc.replace(/^t/, 'T'))} · ${ouLinha(k.formaPagamento)}`)}
-        ${linhaA('Caução e prazo de devolução', c.caucao > 0 ? `${esc(moeda(c.caucao))} · devolvida em até ${esc(k.diasCaucao)} dias depois da devolução do veículo` : 'Sem caução')}
+        ${linhaA('Caução e prazo de devolução', c.caucao > 0 ? `${esc(moeda(c.caucao))}${parc ? `, paga em ${esc(parc)}` : ''} · devolvida em até ${esc(k.diasCaucao)} dias depois da devolução do veículo` : 'Sem caução')}
         ${linhaA('Franquia de quilometragem', `${esc(fmtNum(Number(k.franquiaKm)))} km`)}
         ${linhaA('Valor por km excedente', `R$ ${esc(k.kmExcedente)} por km`)}
         ${linhaA('Multa diária por atraso na devolução', `R$ ${esc(k.multaDiaria)} por dia`)}
@@ -4706,7 +4791,7 @@ window.LOGO_MARCA = {
       + cl(`${ord()} – DO VALOR`, mudou
         ? `A partir de ${n(dataBR(r.desde))}, o valor da locação passa de ${esc(moeda(r.antes.valor))} para ${n(moeda(valor))} por semana${esc(dia)}. As semanas anteriores continuam com o valor antigo.`
         : `O valor da locação continua ${n(moeda(valor))} por semana${esc(dia)}.`)
-      + (c.caucao > 0 && !c.caucaoAcerto ? cl(`${ord()} – DA CAUÇÃO`, `A caução de ${n(moeda(c.caucao))}, já paga, continua vinculada ao contrato e será acertada no fim da locação, nas condições do contrato original.`) : '')
+      + (c.caucao > 0 && !c.caucaoAcerto ? cl(`${ord()} – DA CAUÇÃO`, `A caução de ${n(moeda(c.caucao))}, ${c.caucaoParc ? 'parcelada nas condições do contrato original' : 'já paga'}, continua vinculada ao contrato e será acertada no fim da locação, nas condições do contrato original.`) : '')
       + cl(`${ord()} – DAS DEMAIS CONDIÇÕES`, 'Permanecem em vigor todas as cláusulas do contrato original que não foram alteradas por este termo.')
       + `<p class="f-local">${esc(localData(r.desde))}</p>` + assinaturasPartes(P, c);
     log('termo aditivo gerado', `${c.id} ${r.desde}`);
@@ -5004,7 +5089,12 @@ window.LOGO_MARCA = {
       <h3 class="rotulo">${t('fl_caucaoTitulo')}</h3>
       ${atual && atual.caucaoAcerto ? `<p class="nota">${esc(t('fl_caucaoTravada', { d: dataBR(atual.caucaoAcerto.data) }))}</p>`
         : `${campoForm('fl', 'caucao', 'fl_caucao', 'type="text" inputmode="decimal" maxlength="10" autocomplete="off"', t('fl_caucaoAjuda'))}
-      ${campoForm('fl', 'caucaoData', 'fl_caucaoData', `type="date" max="${hoje}"`)}`}
+      <div class="campo-claro"><label for="fl-caucaoForma">${t('fl_caucaoForma')}</label>
+        <select id="fl-caucaoForma" data-campo="fl.caucaoForma" aria-invalid="${!!e.caucaoForma}">${opcoes([['vista', t('fl_caucaoVista')], ['dia', t('fl_caucaoPorDia')],
+          ['semana', t('fl_caucaoPorSemana')], ['mes', t('fl_caucaoPorMes')]], f.caucaoForma || 'vista')}</select>${erroSel('caucaoForma')}</div>
+      ${f.caucaoForma && f.caucaoForma !== 'vista' ? campoForm('fl', 'caucaoParcelas', 'fl_caucaoParcelas', `type="text" inputmode="numeric" maxlength="3" autocomplete="off"`) : ''}
+      ${f.caucaoForma && f.caucaoForma !== 'vista' ? campoForm('fl', 'caucaoData', 'fl_caucaoData1', 'type="date"') : campoForm('fl', 'caucaoData', 'fl_caucaoData', `type="date" max="${hoje}"`)}
+      <p class="nota" id="fl-caucaoResumo" aria-live="polite">${esc(resumoParcelasForm(f))}</p>`}
       <button class="botao verde largo" id="fl-salvar" data-acao="salvarCliente">${t('fl_salvar')}</button>
       ${!atual ? '' : c.certezaRemover
         ? `<div class="certeza" role="alert"><p>${esc(t('removerClienteCerteza', { n: atual.nome }))}</p>
@@ -6304,7 +6394,7 @@ window.LOGO_MARCA = {
     novoCliente() {
       abrirModal({ tipo: 'cliente', cliente: null, erros: {}, certezaRemover: false,
         f: { nome: '', cpf: '', rg: '', cnhNumero: '', cnhCategoria: 'B', cnhValidade: '', endereco: '', fone: '', email: '', antOk: false, antData: '', antObs: '',
-          unidade: '', entrega: hojeData(), devolucao: '', diaVenc: '', valorSemanal: '', caucao: '', caucaoData: hojeData() } });
+          unidade: '', entrega: hojeData(), devolucao: '', diaVenc: '', valorSemanal: '', caucao: '', caucaoData: hojeData(), caucaoForma: 'vista', caucaoParcelas: '' } });
     },
     editarCliente(x) {
       const c = clienteId(x);
@@ -6313,7 +6403,8 @@ window.LOGO_MARCA = {
         f: { nome: c.nome, cpf: c.cpf, rg: c.rg || '', cnhNumero: c.cnhNumero, cnhCategoria: c.cnhCategoria, cnhValidade: c.cnhValidade, endereco: c.endereco, fone: c.fone,
           email: c.email, antOk: c.antecedentes.ok, antData: c.antecedentes.data, antObs: c.antecedentes.obs, unidade: c.unidade,
           entrega: c.entrega || hojeData(), devolucao: c.devolucao, diaVenc: c.diaVenc === null ? '' : String(c.diaVenc), valorSemanal: c.valorSemanal ? reaisTxt(c.valorSemanal) : '',
-          caucao: c.caucao ? reaisTxt(c.caucao) : '', caucaoData: c.caucaoData || c.entrega || hojeData(), caucaoAcertada: c.caucaoAcerto ? c.caucao : 0 } });
+          caucao: c.caucao ? reaisTxt(c.caucao) : '', caucaoData: c.caucaoData || c.entrega || hojeData(), caucaoAcertada: c.caucaoAcerto ? c.caucao : 0,
+          caucaoForma: c.caucaoParc ? c.caucaoParc.per : 'vista', caucaoParcelas: c.caucaoParc ? String(c.caucaoParc.n) : '' } });
     },
     salvarCliente() { salvarCliente(); },
     acertarCaucao(x) {
@@ -6472,6 +6563,10 @@ window.LOGO_MARCA = {
         alvo.innerHTML = `<strong>${esc(t('ak_devolver', { v: moeda(d === null ? cl.caucao : cl.caucao - d) }))}</strong>`;
       }
     }
+    if (['fl.caucao', 'fl.caucaoParcelas', 'fl.caucaoData'].includes(c) && UI.modal && UI.modal.tipo === 'cliente') {
+      const alvo = document.getElementById('fl-caucaoResumo');
+      if (alvo) alvo.textContent = resumoParcelasForm(UI.modal.f);
+    }
     if (c.startsWith('novoFixo.')) UI.novoFixo[c.slice(9)] = e.target.value;
     if (c === 'kmLembrete') UI.kmLembrete[e.target.dataset.x] = e.target.value;
     if (c.startsWith('ent.')) NUVEM.form[c.slice(4)] = e.target.value;
@@ -6487,6 +6582,14 @@ window.LOGO_MARCA = {
     if (['fm.tipo', 'fm.filtro', 'fm.oleo', 'fm.freio'].includes(c) && UI.modal && UI.modal.tipo === 'manut') {
       UI.modal.f[c.slice(3)] = el.value;
       UI.modal.erros = {};
+      desenharModal();
+      const de = document.getElementById(el.id);
+      if (de) de.focus({ preventScroll: true });
+      return;
+    }
+    if (c === 'fl.caucaoForma' && UI.modal && UI.modal.tipo === 'cliente') {
+      UI.modal.f.caucaoForma = el.value;
+      delete UI.modal.erros.caucaoForma; delete UI.modal.erros.caucaoParcelas;
       desenharModal();
       const de = document.getElementById(el.id);
       if (de) de.focus({ preventScroll: true });
