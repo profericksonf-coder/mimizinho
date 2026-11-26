@@ -487,6 +487,12 @@ fieldset.grupo .opcao + .opcao { margin-top: 0; }
 .lem-km input[aria-invalid="true"] { border-color: var(--pare); }
 .lem .erro { grid-column: 1 / -1; }
 .manut-regs.anexos li { flex-wrap: wrap; }
+/* renovações: texto na linha de cima, botões embaixo (lado a lado o texto espremia e o Desfazer vazava do cartão) */
+.manut-regs.renov li { flex-wrap: wrap; justify-content: flex-start; }
+.manut-regs.renov li > span { flex: 1 0 100%; }
+/* cartão do cliente: todos os botões do mesmo tamanho, texto laranja pra destacar do texto comum (--ok = laranja legível nos 2 modos) */
+article.cliente .fino { color: var(--ok); font-weight: 600; }
+article.cliente .fino:hover:not(:disabled) { color: var(--ok); border-color: var(--ok); }
 @media (max-width: 700px) {
   .lem { grid-template-columns: minmax(0, 1fr); }
   .lem .selo { justify-self: start; }
@@ -566,7 +572,7 @@ body { font-size: 15.5px; -webkit-font-smoothing: antialiased; }
 .selo::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--ponto, var(--apagado)); flex: none; }
 .selo.pare { color: var(--pare); --ponto: var(--pare); }
 .selo.atencao { color: var(--ambar-texto); --ponto: var(--ambar); } /* 24/11: texto amarelo (antes herdava o grafite e sumia no modo noite) */
-.selo.ok { --ponto: var(--ok); }
+.selo.ok { color: var(--verde); --ponto: var(--verde); } /* 25/11: "em dia" em verde (laranja agora é a cor dos botões e parecia clicável) */
 .selo.car-disponivel { color: var(--tinta); --ponto: var(--verde); }
 .selo.car-alugado { color: var(--tinta); --ponto: var(--ok); }
 .selo.car-vistoria, .selo.car-manutencao { color: var(--tinta); --ponto: var(--ambar); }
@@ -677,6 +683,22 @@ body { font-size: 15.5px; -webkit-font-smoothing: antialiased; }
   .f-assinaturas div { flex: 0 1 48%; display: grid; gap: 4px; text-align: center; font-size: 9.5pt; }
   .f-assinaturas span { border-top: 1px solid #14181A; }
   .f-rodape { margin-top: 26px; padding-top: 6px; border-top: 1px solid #DFE2E3; font-size: 8pt; color: #5E676B; text-align: center; }
+  /* contrato e termo aditivo (25/11/2026) */
+  .f-quadro { width: 100%; border-collapse: collapse; font-size: 9.5pt; border: 1.5px solid #14181A; }
+  .f-quadro th { width: 26%; text-align: left; vertical-align: top; padding: 5px 8px; font-size: 8pt; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: #3d4448; background: #F4F5F5; border-bottom: 1px solid #C9CED0; }
+  .f-quadro td { padding: 5px 8px; border-bottom: 1px solid #C9CED0; }
+  .f-quadro tr { break-inside: avoid; }
+  .f-secao-livre { margin-top: 14px; }
+  .f-anexo { margin: 0 0 8px; font-size: 10pt; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; color: #B35300; }
+  .f-clausula { margin: 8px 0 0; }
+  .f-clausula h3 { margin: 0 0 2px; font-size: 9.5pt; font-weight: 800; break-after: avoid; }
+  .f-clausula-p { margin: 0 0 5px; font-size: 9.5pt; line-height: 1.5; text-align: justify; orphans: 3; widows: 3; }
+  .f-quebra { break-before: page; }
+  .f-grade td, .f-grade th { border: 1px solid #C9CED0; }
+  .f-grade td { height: 9mm; }
+  .f-linhas { margin: 10px 0 0; padding-bottom: 14mm; border-bottom: 1px solid #C9CED0; font-size: 9.5pt; font-weight: 600; }
+  .f-assinaturas small { display: block; font-size: 8pt; color: #3d4448; }
+  .f-assin-4 { display: grid; grid-template-columns: 1fr 1fr; gap: 44px 28px; }
 }
 
 </style>
@@ -883,6 +905,9 @@ body { font-size: 15.5px; -webkit-font-smoothing: antialiased; }
     const fone = String(f.fone || '').trim();
     const foneDig = fone.replace(/\D/g, '');
     if (foneDig.length < 10 || foneDig.length > 11 || !/^[\d()\s+-]+$/.test(fone)) erros.fone = 'erroFone';
+    // RG (25/11/2026): opcional, só pra sair no contrato
+    const rg = String(f.rg || '').trim().replace(/\s+/g, ' ');
+    if (rg && (rg.length > 20 || !/^[\w .\/-]+$/.test(rg))) erros.rg = 'erroRg';
     const email = String(f.email || '').trim();
     if (email && (email.length > 120 || !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email))) erros.email = 'erroEmail';
     // antecedentes: marcado à mão pelo dono depois de consultar; o app não consulta nada
@@ -919,7 +944,7 @@ body { font-size: 15.5px; -webkit-font-smoothing: antialiased; }
     return {
       erros,
       cliente: {
-        nome, cpf, cnhNumero, cnhCategoria, cnhValidade, endereco, fone, email,
+        nome, cpf, rg, cnhNumero, cnhCategoria, cnhValidade, endereco, fone, email,
         antecedentes: { ok: antOk, data: antOk ? antData : '', obs: antObs },
         unidade, entrega: unidade ? entrega : '', devolucao: unidade ? devolucao : '', diaVenc, valorSemanal: valorSemanal || 0,
         caucao, caucaoData,
@@ -994,12 +1019,84 @@ body { font-size: 15.5px; -webkit-font-smoothing: antialiased; }
     for (let i = 0; i < 1100 && v <= hoje && v <= fim; i++) { if (!pagos.has(v)) abertos.push(v); v = somarDias(v, 7); }
     if (abertos.length) {
       const venc = abertos[0];
-      return { venc, dias: diasEntre(hoje, venc), estado: venc < hoje ? 'atrasado' : 'hoje', abertos: abertos.length, valor: c.valorSemanal };
+      return { venc, dias: diasEntre(hoje, venc), estado: venc < hoje ? 'atrasado' : 'hoje', abertos: abertos.length, valor: valorNaSemana(c, venc) };
     }
     for (let i = 0; i < 60 && pagos.has(v) && v <= fim; i++) v = somarDias(v, 7); // já pago adiantado
     if (v > fim) return null;
     return { venc: v, dias: diasEntre(hoje, v), estado: 'emDias', abertos: 0, valor: c.valorSemanal };
   }
+
+  /* ---------- renovação do contrato (25/11/2026) ----------
+     Renovar estende a devolução SEM mexer na entrega (o histórico de cobrança continua) e pode mudar o valor da semana
+     a partir do começo do novo período. Cada renovação guarda como era antes ({ devolucao, valor }), então as semanas
+     antigas continuam cobradas pelo valor antigo e dá pra desfazer a última. renovacoes fica em ordem de `desde`. */
+  const PRAZO_PADRAO_DIAS = 91;
+  // valor da semana que vence em `venc`: o "antes" da primeira renovação que começa DEPOIS dele; sem nenhuma, o valor atual
+  function valorNaSemana(c, venc) {
+    const r = (c.renovacoes || []).find((x) => x.desde > venc);
+    return r ? r.antes.valor : c.valorSemanal;
+  }
+  // começo do período atual do contrato (o da última renovação, ou a entrega)
+  function inicioPeriodo(c) {
+    const r = (c.renovacoes || []).slice(-1)[0];
+    return r ? r.desde : c.entrega;
+  }
+
+  /* f = { desde, devolucao, valor (texto R$) }. O novo período pode começar até 7 dias depois da devolução antiga
+     (mais que isso não é renovação: as semanas do meio seriam cobradas). Devolve { erros, renovacao, valor } */
+  function validarRenovacao(f, c, hoje) {
+    const erros = {};
+    if (!c || !c.unidade || !dataValida(c.entrega)) return { erros: { desde: 'erroRenovarSemCarro' }, renovacao: null, valor: 0 };
+    const desde = String(f.desde || ''), devolucao = String(f.devolucao || '');
+    const ultima = (c.renovacoes || []).slice(-1)[0];
+    if (!dataValida(desde)) erros.desde = 'erroDataManut';
+    else if (desde < c.entrega) erros.desde = 'erroRenovarAntesEntrega';
+    else if (ultima && desde < ultima.desde) erros.desde = 'erroRenovarAntesUltima';
+    else if (c.devolucao && desde > somarDias(c.devolucao, 7)) erros.desde = 'erroRenovarDepois';
+    if (!dataValida(devolucao)) erros.devolucao = 'erroDataManut';
+    else if (!erros.desde && devolucao <= desde) erros.devolucao = 'erroRenovarDevolucao';
+    else if (c.devolucao && devolucao <= c.devolucao) erros.devolucao = 'erroRenovarMenor';
+    const valor = validarDinheiro(f.valor, 100, 1000000);
+    if (valor === null) erros.valor = 'erroValorSemanal';
+    return { erros, valor: valor || 0, renovacao: { em: hoje, desde, devolucao, antes: { devolucao: c.devolucao || '', valor: c.valorSemanal } } };
+  }
+
+  /* ---------- valores padrão do contrato (Configurações, 25/11/2026) ----------
+     Tudo texto (como sai no papel). tipo: texto | doc (CPF ou CNPJ, sai formatado) | inteiro | dinheiro ("0,86") | simnao */
+  const CAMPOS_CONTRATO = {
+    locNome: { tipo: 'texto', max: 80 }, locDoc: { tipo: 'doc', max: 18 }, locRg: { tipo: 'texto', max: 20 }, locEndereco: { tipo: 'texto', max: 160 },
+    prazoDias: { tipo: 'inteiro', max: 4, min: 7, teto: 1100 }, franquiaKm: { tipo: 'inteiro', max: 7, min: 0, teto: 1000000 },
+    kmExcedente: { tipo: 'dinheiro', max: 10 }, multaDiaria: { tipo: 'dinheiro', max: 10 }, diasCaucao: { tipo: 'inteiro', max: 3, min: 0, teto: 365 },
+    formaPagamento: { tipo: 'texto', max: 80 }, regiao: { tipo: 'texto', max: 120 }, app: { tipo: 'simnao', max: 3 },
+  };
+  const CONTRATO_PADRAO = {
+    locNome: '', locDoc: '', locRg: '', locEndereco: '', prazoDias: '91', franquiaKm: '6000', kmExcedente: '0,86', multaDiaria: '71,42',
+    diasCaucao: '30', formaPagamento: 'PIX, TED ou cartão de crédito', regiao: 'Belo Horizonte e Região Metropolitana', app: 'sim',
+  };
+  function validarCampoContrato(k, texto) {
+    const campo = CAMPOS_CONTRATO[k];
+    if (!campo) return { erro: 'erroCampoEmpresa', valor: '' };
+    const v = String(texto ?? '').trim().replace(/\s+/g, ' ');
+    if (campo.tipo === 'simnao') return ['sim', 'nao'].includes(v) ? { erro: null, valor: v } : { erro: 'erroCampoEmpresa', valor: v };
+    if (!v) return campo.tipo === 'texto' || campo.tipo === 'doc' ? { erro: null, valor: '' } : { erro: 'erroCampoNumero', valor: v };
+    if (campo.tipo === 'texto') return v.length > campo.max ? { erro: 'erroCampoEmpresa', valor: v } : { erro: null, valor: v };
+    if (campo.tipo === 'doc') {
+      const d = v.replace(/\D/g, '');
+      if (d.length === 11 && cpfValido(d)) return { erro: null, valor: `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6, 9)}-${d.slice(9)}` };
+      if (d.length === 14 && cnpjValido(d)) return { erro: null, valor: `${d.slice(0, 2)}.${d.slice(2, 5)}.${d.slice(5, 8)}/${d.slice(8, 12)}-${d.slice(12)}` };
+      return { erro: 'erroDocLocadora', valor: v };
+    }
+    if (campo.tipo === 'inteiro') {
+      const d = v.replace(/\./g, '');
+      if (!/^\d+$/.test(d) || Number(d) < campo.min || Number(d) > campo.teto) return { erro: 'erroCampoNumero', valor: v };
+      return { erro: null, valor: String(Number(d)) };
+    }
+    const c = validarDinheiro(v, 0, 100000000);
+    if (c === null) return { erro: 'erroCampoNumero', valor: v };
+    return { erro: null, valor: `${Math.floor(c / 100)},${String(c % 100).padStart(2, '0')}` };
+  }
+  // contrato com os padrões preenchidos (o que estiver salvo em Configurações vale mais)
+  function contratoCfg(cfg) { return { ...CONTRATO_PADRAO, ...((cfg && cfg.contrato) || {}) }; }
 
   /* lembrete mensal de perguntar o km ao cliente: 30 dias depois do último km registrado (ou da entrega).
      estado: atrasado | hoje | emDias */
@@ -1428,6 +1525,7 @@ body { font-size: 15.5px; -webkit-font-smoothing: antialiased; }
     checkinFeito, pontosDe, fidelidade, estadoCarro, indicadores,
     TIPOS_MANUTENCAO, normalizarPlaca, placaValida, validarValor, validarCarro, validarManutencao, validarIntervalo,
     situacaoTroca, gastoManutencao, valorPorExtenso, validarCampoEmpresa, CAMPOS_EMPRESA, FILTROS, OLEOS, OLEOS_DO_MOTOR, FREIOS, qualOleo, situacaoCaucao, validarAcertoCaucao, caucoesGuardadas,
+    PRAZO_PADRAO_DIAS, valorNaSemana, inicioPeriodo, validarRenovacao, CAMPOS_CONTRATO, CONTRATO_PADRAO, validarCampoContrato, contratoCfg,
     TIPOS_CUSTO, CUSTOS_ANUAIS, validarDinheiro, validarFipe, validarAliquota, ipva, validarCusto, validarFixo, somarMes,
     custoNoMes, custoCobreMes, totalFixos, fixoPorCarro, margemCarro, margemFrota, simular,
     digitoRenavam, renavamValido, diasEntre, diaDaSemana, dataValida, CATEGORIAS_CNH, validarCliente, situacaoCnh,
@@ -2353,7 +2451,118 @@ body { font-size: 15.5px; -webkit-font-smoothing: antialiased; }
     kmRegistrado: 'Km do {p} atualizado: {k} km',
     kmRegistradoTroca: 'Km do {p} atualizado: {k} km. Atenção: troca de {t} {s}',
     erroKmMenor: 'O km não pode ser menor que o atual do carro.',
+    // renovação e contrato (25/11/2026)
+    fl_rg: 'RG (opcional, sai no contrato)',
+    erroRg: 'RG inválido: use só letras, números, ponto, barra ou traço (até 20).',
+    fl_valorPeriodoAtual: 'Esse é o valor do período atual (desde {d}). Pra mudar o preço numa renovação, use o botão Renovar.',
+    fl_devolucaoRenovar: 'Renovou o contrato? Use o botão Renovar no cartão do cliente: ele guarda o histórico e o preço de cada período.',
+    btnRenovar: 'Renovar',
+    btnContrato: 'Contrato',
+    btnTermo: 'Imprimir termo',
+    clRenovacoes: 'Renovações',
+    clRenovacaoTxt: 'Em {e}: de {i} até {d} · {v} por semana{a}',
+    clRenovacaoAntes: ' (antes {v})',
+    desfazerRenovacao: 'Desfazer',
+    desfazerRenovacaoCerteza: 'Toque de novo pra desfazer',
+    renovacaoDesfeita: 'Renovação desfeita: devolução volta pra {d} e o valor pra {v}',
+    rn_titulo: 'Renovar contrato',
+    rn_resumo: '{n} · {c} · hoje vai até {d}, {v} por semana',
+    rn_resumoAberto: '{n} · {c} · contrato sem data de devolução, {v} por semana',
+    rn_desde: 'Novo período começa em',
+    rn_desdeAjuda: 'Normalmente é o dia da devolução antiga. Muda só se a renovação começou em outro dia.',
+    rn_devolucao: 'Nova devolução',
+    rn_devolucaoAjuda: 'Já vem com {n} dias (o prazo padrão de Configurações). Pode mudar.',
+    rn_valor: 'Valor semanal do novo período (R$)',
+    rn_valorAjuda: 'Teve reajuste? Coloque o valor novo. As semanas antes do novo período continuam cobradas pelo valor antigo.',
+    rn_caucao: 'A caução de {v} continua guardada com o contrato.',
+    rn_salvar: 'Renovar contrato',
+    rn_feito: 'Contrato renovado até {d}, {v} por semana.',
+    rn_feitoAjuda: 'Imprima o termo aditivo (1 folha, só o que mudou) ou um contrato novo completo, se preferir.',
+    rn_imprimirTermo: 'Imprimir termo aditivo',
+    rn_imprimirContrato: 'Imprimir contrato novo',
+    rn_fechar: 'Fechar',
+    renovadoOk: 'Contrato de {n} renovado até {d}',
+    erroRenovarSemCarro: 'Esse cliente não tem carro no contrato. Escolha o carro em Editar.',
+    erroRenovarAntesEntrega: 'O novo período não pode começar antes da entrega do carro.',
+    erroRenovarAntesUltima: 'O novo período não pode começar antes da última renovação.',
+    erroRenovarDepois: 'Começa mais de 7 dias depois da devolução antiga: isso não é renovação. Pra um contrato novo, edite o cliente.',
+    erroRenovarDevolucao: 'A nova devolução tem que ser depois do começo do novo período.',
+    erroRenovarMenor: 'A nova devolução tem que ser depois da devolução atual.',
+    ct_titulo: 'Gerar contrato',
+    ct_resumo: '{n} · {c} · de {i} a {d}, {v} por semana',
+    ct_horaRet: 'Horário da retirada (opcional)',
+    ct_horaDev: 'Horário da devolução (opcional)',
+    ct_app: 'Uso em aplicativo de transporte',
+    ct_condutores: 'Outros condutores autorizados (opcional)',
+    ct_outras: 'Outras condições (opcional)',
+    ct_ajuda: 'Campo em branco sai com linha pra preencher à mão. Valores padrão (franquia, km excedente, multa, região) e dados da locadora ficam em Configurações.',
+    ct_imprimir: 'Imprimir contrato',
+    ct_sim: 'Sim',
+    ct_nao: 'Não',
+    erroHora: 'Horário inválido.',
+    erroTextoLongo: 'Texto grande demais.',
+    ctoTitulo: 'Contrato (dados da locadora e valores padrão)',
+    ctoAjuda: 'Saem no contrato e no termo aditivo. Nome da locadora em branco = usa o nome da empresa. Salva sozinho quando você sai do campo.',
+    cto_locNome: 'Nome da locadora (como sai no contrato)',
+    cto_locDoc: 'CPF ou CNPJ da locadora',
+    cto_locRg: 'RG da locadora (se for pessoa física)',
+    cto_locEndereco: 'Endereço da locadora',
+    cto_prazoDias: 'Prazo padrão do contrato (dias)',
+    cto_franquiaKm: 'Franquia de km do contrato',
+    cto_kmExcedente: 'Valor por km excedente (R$)',
+    cto_multaDiaria: 'Multa diária por atraso na devolução (R$)',
+    cto_diasCaucao: 'Prazo pra devolver a caução (dias depois da devolução do carro)',
+    cto_formaPagamento: 'Forma de pagamento',
+    cto_regiao: 'Região permitida',
+    cto_app: 'Uso em aplicativo de transporte (padrão)',
+    ctoSalvo: 'Dados do contrato salvos',
+    erroDocLocadora: 'CPF ou CNPJ inválido. Confira os números.',
+    erroCampoNumero: 'Número inválido.',
+    imp_rg: 'RG',
+    imp_contratoTitulo: 'Contrato particular de locação de veículo automotor',
+    imp_termoTitulo: 'Termo aditivo de prorrogação do contrato de locação',
   };
+
+  /* Texto das cláusulas do contrato da Track Go (25/11/2026): é o contrato de papel deles, só com os erros de digitação corrigidos.
+     ⚠️ Revisão do conteúdo pendente (perguntas pro Mineiro + segunda opinião da Athena): quando vier, troca SÓ este bloco.
+     Cada cláusula: { t: título, p: [parágrafos] }. "Parágrafo …:" no começo sai em negrito. */
+  const CONTRATO_CLAUSULAS = [
+    { t: 'CLÁUSULA 1ª – DAS PARTES', p: ['As partes identificadas no quadro-resumo celebram este contrato de locação de veículo, mediante as condições abaixo.'] },
+    { t: 'CLÁUSULA 2ª – DO OBJETO E DA DESTINAÇÃO', p: ['A LOCADORA entrega ao(à) LOCATÁRIO(A) o veículo descrito no quadro-resumo para uso temporário e lícito. O uso em aplicativos de transporte somente será permitido se autorizado no quadro-resumo e se atendidas as exigências legais e dos aplicativos.'] },
+    { t: 'CLÁUSULA 3ª – DO PRAZO', p: ['A locação terá início e término nas datas e horários indicados. Qualquer prorrogação dependerá de concordância expressa da LOCADORA, registrada por escrito ou mensagem que permita comprovação.'] },
+    { t: 'CLÁUSULA 4ª – DO PREÇO E PAGAMENTO', p: ['O(A) LOCATÁRIO(A) pagará o valor e a periodicidade indicados no quadro-resumo. Em caso de atraso, incidirão multa moratória de 2%, juros de 1% ao mês calculados proporcionalmente aos dias de atraso e atualização monetária pelo IPCA, respeitada a legislação aplicável.'] },
+    { t: 'CLÁUSULA 5ª – DA GARANTIA (CAUÇÃO)', p: [
+      'Como garantia fiel do cumprimento de todas as obrigações assumidas neste contrato — incluindo pagamento de diárias, franquia de seguro, avarias, limpeza, combustível faltante e multas de trânsito —, o(a) LOCATÁRIO(A) prestará à LOCADORA, obrigatoriamente antes da retirada do veículo, caução no valor estipulado no quadro-resumo, mediante transferência via PIX/TED para a conta indicada pela LOCADORA (ou pré-autorização em cartão de crédito).',
+      'Parágrafo Primeiro: A entrega das chaves e a posse do veículo ficam expressamente condicionadas à efetiva compensação do valor da caução, servindo o respectivo comprovante bancário como recibo de garantia, dispensada a assinatura de aditivo específico.',
+      'Parágrafo Segundo: É expressamente vedado ao(à) LOCATÁRIO(A) utilizar o valor da caução para abater ou compensar o pagamento das últimas diárias ou mensalidades vigentes durante a locação.',
+      'Parágrafo Terceiro: Encerrada a locação e devolvido o veículo sem avarias constatadas na vistoria final, a LOCADORA restituirá o valor integral da caução no prazo de até {diasCaucao} dias corridos contados da devolução, período necessário para a verificação de eventuais infrações de trânsito cometidas durante a vigência do contrato.',
+      'Parágrafo Quarto: Havendo débitos pendentes, avarias ou multas apuradas, a LOCADORA fica autorizada a reter e descontar os respectivos valores diretamente da caução, restituindo apenas o saldo remanescente mediante prestação de contas simples. Caso a caução seja insuficiente para cobrir o prejuízo total, o(a) LOCATÁRIO(A) permanecerá obrigado(a) a quitar a diferença em até 5 (cinco) dias úteis, sob pena de adoção das medidas judiciais cabíveis.'] },
+    { t: 'CLÁUSULA 6ª – DO CONDUTOR E DA CESSÃO', p: ['Somente o(a) LOCATÁRIO(A) poderá conduzir o veículo, salvo autorização prévia e escrita da LOCADORA e identificação do condutor autorizado. É proibido emprestar, sublocar, ceder ou permitir a posse/condução por terceiros sem autorização.'] },
+    { t: 'CLÁUSULA 7ª – DAS OBRIGAÇÕES DO(A) LOCATÁRIO(A)', p: ['O(A) LOCATÁRIO(A) deverá manter CNH válida e adequada; cumprir as leis de trânsito; zelar pelo veículo; verificar pneus, níveis e alertas do painel; comunicar imediatamente anormalidades; não fazer reparos ou alterações sem autorização, salvo emergência indispensável à segurança; não usar o veículo em atividade ilícita, competição ou reboque; e não dirigir sob efeito de álcool ou substâncias que comprometam a condução.'] },
+    { t: 'CLÁUSULA 8ª – DAS MULTAS E INFRAÇÕES DE TRÂNSITO', p: [
+      'Infrações ocorridas durante a locação serão atribuídas conforme a legislação vigente. O(A) LOCATÁRIO(A) compromete-se a assinar e devolver o formulário de identificação do condutor infrator, acompanhado de cópia da CNH, no prazo máximo de 5 (cinco) dias corridos contados do envio da notificação pela LOCADORA.',
+      'Parágrafo Primeiro: Caso o(a) LOCATÁRIO(A) não indique o condutor no prazo estipulado, arcará com o reembolso integral da multa originária, de eventual multa agravada por Não Identificação de Condutor (multa NIC) e de eventuais custos administrativos ou honorários necessários à regularização da pontuação perante os órgãos de trânsito.',
+      'Parágrafo Segundo: A LOCADORA fica autorizada a descontar os valores das multas diretamente da caução ou cobrá-los imediatamente mediante apresentação do auto de infração, incidindo os encargos de atraso da Cláusula 4ª em caso de não reembolso em até 3 (três) dias úteis.'] },
+    { t: 'CLÁUSULA 9ª – DE ACIDENTES, SINISTROS E COBERTURA SECURITÁRIA', p: [
+      'Em caso de acidente, furto, roubo ou incêndio, o(a) LOCATÁRIO(A) deverá priorizar a segurança, acionar os serviços necessários, registrar boletim de ocorrência e comunicar imediatamente a LOCADORA, fornecendo fotos e dados dos envolvidos.',
+      'Parágrafo Primeiro: Havendo acionamento de seguro em decorrência de sinistro, o(a) LOCATÁRIO(A) arcará integralmente com o pagamento da franquia estipulada na apólice sempre que agir com culpa, dolo, imprudência, imperícia ou quando não houver terceiro identificado que assuma e quite o reparo.',
+      'Parágrafo Segundo: Caso a seguradora recuse a indenização por ato ilícito ou descumprimento contratual praticado pelo(a) LOCATÁRIO(A) — incluindo, mas não se limitando a, direção sob efeito de álcool ou substâncias psicoativas, excesso de velocidade grave, condução por pessoa não autorizada, furto por negligência (como deixar chaves no veículo) ou uso em aplicativo sem autorização expressa —, o(a) LOCATÁRIO(A) responderá integralmente pelos danos causados a terceiros e pelo ressarcimento do veículo à LOCADORA pelo valor vigente da Tabela FIPE.'] },
+    { t: 'CLÁUSULA 10ª – DA MANUTENÇÃO', p: ['A LOCADORA responderá pela manutenção decorrente do desgaste natural e por defeitos não causados por uso inadequado. O(A) LOCATÁRIO(A) responderá por danos decorrentes de mau uso, negligência, condução inadequada ou falta de comunicação de alertas. Serviços dependem de autorização prévia, salvo emergência comprovada.'] },
+    { t: 'CLÁUSULA 11ª – DO COMBUSTÍVEL E DESPESAS', p: ['O veículo será entregue com o nível de combustível registrado na vistoria e deverá ser devolvido no mesmo nível, salvo ajuste diverso. Combustível, pedágios, estacionamentos e despesas ordinárias de uso serão pagos pelo(a) LOCATÁRIO(A). Franquia de quilometragem e valor por km excedente constam do quadro-resumo e do Anexo II.'] },
+    { t: 'CLÁUSULA 12ª – DO FUMO E HIGIENIZAÇÃO', p: ['É proibido fumar no interior do veículo. Sujeira extraordinária, odores persistentes ou higienização especial, quando comprovados e além do desgaste normal, poderão ser cobrados mediante apresentação do custo.'] },
+    { t: 'CLÁUSULA 13ª – DO RASTREAMENTO E DADOS', p: ['O veículo poderá possuir rastreador para proteção patrimonial, localização em emergências e recuperação em caso de furto ou roubo. Os dados deverão ser tratados para finalidades compatíveis com a locação, com acesso restrito e observância da legislação de proteção de dados.'] },
+    { t: 'CLÁUSULA 14ª – DA DEVOLUÇÃO, VISTORIA E RETENÇÃO INDEVIDA', p: [
+      'O veículo deverá ser devolvido no local, data e horário combinados, com chaves, documentos e acessórios. Será realizada vistoria comparativa com o laudo inicial, considerando o desgaste normal do uso regular. Danos e itens faltantes serão apurados e cobrados quando comprovados e cabíveis.',
+      'Parágrafo Único: A não devolução do veículo após 24 (vinte e quatro) horas do término do prazo contratual ou da rescisão notificada, sem prorrogação formalmente aprovada, configurará esbulho possessório e ilícito penal de apropriação indébita (art. 168 do Código Penal), autorizando a LOCADORA a efetuar o bloqueio remoto do veículo via rastreador, registrar boletim de ocorrência, requerer busca e apreensão ou reintegração de posse imediata e cobrar diárias extras até a efetiva recuperação do bem, além das despesas de guincho e deslocamento.'] },
+    { t: 'CLÁUSULA 15ª – DA INDISPONIBILIDADE E LUCROS CESSANTES', p: [
+      'Se o veículo ficar indisponível por falha mecânica não causada pelo(a) LOCATÁRIO(A), as partes ajustarão suspensão proporcional do aluguel ou solução razoável conforme o período e as circunstâncias.',
+      'Parágrafo Único: Se a indisponibilidade do veículo em oficina ou pátio decorrer de acidente, apreensão ou mau uso imputável ao(à) LOCATÁRIO(A), este(a) pagará à LOCADORA, a título de lucros cessantes, o equivalente a 50% (cinquenta por cento) do valor da diária contratada por cada dia em que o veículo permanecer imobilizado para reparos ou liberação, limitado ao teto máximo de 30 (trinta) dias.'] },
+    { t: 'CLÁUSULA 16ª – DA RESCISÃO', p: ['O contrato poderá ser rescindido por acordo entre as partes, sem incidência de multa, ou unilateralmente pela LOCADORA, em caso de descumprimento contratual pelo(a) LOCATÁRIO(A), inclusive falta de pagamento, uso ilícito do veículo, cessão não autorizada ou condução por pessoa não autorizada, hipótese em que será devida multa rescisória correspondente a 50% (cinquenta por cento) do valor restante para o término do contrato.'] },
+    { t: 'CLÁUSULA 17ª – DAS COMUNICAÇÕES', p: ['As comunicações poderão ocorrer pelos telefones, e-mails ou aplicativos informados pelas partes, desde que seja possível comprovar envio e conteúdo. Alterações de preço, prazo, condutores ou condições deverão ser registradas por escrito.'] },
+    { t: 'CLÁUSULA 18ª – DISPOSIÇÕES GERAIS E FORO', p: ['Este instrumento e seus anexos representam o acordo. A tolerância não implica renúncia de direitos. Fica eleito o foro legalmente competente, respeitadas as regras legais de competência e eventual proteção do consumidor.'] },
+  ];
+  const VISTORIA_ITENS = ['Carroceria / pintura', 'Vidros / para-brisa', 'Faróis / lanternas', 'Pneus / rodas / estepe', 'Interior / bancos', 'Painel / alertas',
+    'Combustível', 'Quilometragem', 'Chaves / documentos / acessórios'];
 
   function novaReserva(L, o) {
     const u = UNIDADES.find((x) => x.id === o.unidade);
@@ -2494,7 +2703,7 @@ body { font-size: 15.5px; -webkit-font-smoothing: antialiased; }
     return lista;
   }
 
-  return { CONFIG, LOCAIS, CATEGORIAS, DESENHO_POR_CATEGORIA, MODELOS, UNIDADES, PLANOS, EXTRAS, AVARIAS, FOTOS, TEXTOS, CONFIG_PADRAO, FIXOS, semear, clientesExemplo, recebimentosExemplo, renavamExemplo };
+  return { CONFIG, LOCAIS, CATEGORIAS, DESENHO_POR_CATEGORIA, MODELOS, UNIDADES, PLANOS, EXTRAS, AVARIAS, FOTOS, TEXTOS, CONFIG_PADRAO, FIXOS, CONTRATO_CLAUSULAS, VISTORIA_ITENS, semear, clientesExemplo, recebimentosExemplo, renavamExemplo };
 });
 
 </script>
@@ -2992,7 +3201,7 @@ window.LOGO_MARCA = {
     erroTarifa: {}, erroIntervalo: {}, certezaManut: null,
     // ficha, custos, margem e simulador (dono)
     fichaId: null, mes: hojeTxt().slice(0, 7), sim: simPadrao(), novoFixo: { nome: '', valor: '' }, erroNovoFixo: {},
-    erroFixo: {}, erroConfig: {}, erroEmpresa: {}, certezaCusto: null, certezaFixo: null,
+    erroFixo: {}, erroConfig: {}, erroEmpresa: {}, erroContrato: {}, certezaRenovacao: null, certezaCusto: null, certezaFixo: null,
     // clientes, anexos e lembretes (dono)
     kmLembrete: {}, erroKmLembrete: {}, certezaPagamento: null, certezaAnexo: null,
   };
@@ -3030,7 +3239,10 @@ window.LOGO_MARCA = {
         && (c.diaVenc === null || (int(c.diaVenc) && c.diaVenc >= 0 && c.diaVenc <= 6)) && int(c.valorSemanal) && c.valorSemanal >= 0
         && (c.caucao === undefined || (int(c.caucao) && c.caucao >= 0)) && (c.caucaoData === undefined || dataOuVazio(c.caucaoData))
         && (c.caucaoAcerto === undefined || c.caucaoAcerto === null || (dataOk(c.caucaoAcerto.data) && int(c.caucaoAcerto.descontado)
-          && c.caucaoAcerto.descontado >= 0 && int(c.caucaoAcerto.devolvido) && c.caucaoAcerto.devolvido >= 0 && txt(c.caucaoAcerto.motivo, 200)));
+          && c.caucaoAcerto.descontado >= 0 && int(c.caucaoAcerto.devolvido) && c.caucaoAcerto.devolvido >= 0 && txt(c.caucaoAcerto.motivo, 200)))
+        && (c.rg === undefined || txt(c.rg, 20))
+        && (c.renovacoes === undefined || (Array.isArray(c.renovacoes) && c.renovacoes.every((r) => r && dataOk(r.em) && dataOk(r.desde) && dataOk(r.devolucao)
+          && r.antes && dataOuVazio(r.antes.devolucao) && int(r.antes.valor) && r.antes.valor >= 0)));
       const recebOk = (p) => /^pg\d+$/.test(p.id) && /^cl\d+$/.test(p.cliente) && typeof p.unidade === 'string'
         && dataOk(p.venc) && dataOk(p.data) && int(p.valor) && p.valor >= 0;
       const anexoOk = (a) => /^ax\d+$/.test(a.id) && /^(cl|u)\d+$/.test(a.dono) && txt(a.nome, 60) && L.TIPOS_ANEXO.includes(a.tipo)
@@ -3047,8 +3259,10 @@ window.LOGO_MARCA = {
       const aliqOk = (a) => int(a) && a >= 0 && a <= 1000;
       const empresaOk = (e) => e === undefined || (e !== null && typeof e === 'object' && !Array.isArray(e)
         && Object.entries(e).every(([k, v]) => k in L.CAMPOS_EMPRESA && typeof v === 'string' && v.length <= L.CAMPOS_EMPRESA[k]));
+      const contratoOk = (e) => e === undefined || (e !== null && typeof e === 'object' && !Array.isArray(e)
+        && Object.entries(e).every(([k, v]) => k in L.CAMPOS_CONTRATO && typeof v === 'string' && v.length <= L.CAMPOS_CONTRATO[k].max));
       if (!s.custos.every(custoOk) || !s.fixos.every(fixoOk) || !aliqOk(s.config.aliqLocadora) || !aliqOk(s.config.aliqParticular)
-        || !empresaOk(s.config.empresa)) return false;
+        || !empresaOk(s.config.empresa) || !contratoOk(s.config.contrato)) return false;
       const pinOk = (p) => num(p.x) && num(p.y) && zonas.includes(p.zona) && D.AVARIAS.includes(p.tipo);
       const vistOk = (v) => !v || (v.pins.every(pinOk) && num(v.comb) && num(v.km) && v.fotos.every((f) => D.FOTOS.includes(f)));
       const assinOk = (a) => a === null
@@ -4110,6 +4324,24 @@ window.LOGO_MARCA = {
     </section>`;
   }
 
+  // dados da locadora e valores padrão do contrato (25/11/2026); salva campo a campo ao sair dele, igual aos dados da empresa
+  function contratoBloco() {
+    const v = L.contratoCfg(E.config), err = UI.erroContrato;
+    const tipos = { texto: 'type="text"', doc: 'type="text" inputmode="numeric"', inteiro: 'type="text" inputmode="numeric"', dinheiro: 'type="text" inputmode="decimal"' };
+    const campo = (k) => {
+      const def = L.CAMPOS_CONTRATO[k], ref = `cto-${k}`;
+      const entrada = def.tipo === 'simnao'
+        ? `<select id="${ref}" data-campo="contrato" data-x="${k}">${opcoes([['sim', t('ct_sim')], ['nao', t('ct_nao')]], v[k])}</select>`
+        : `<input id="${ref}" ${tipos[def.tipo]} maxlength="${def.max}" autocomplete="off" value="${esc(v[k])}" data-campo="contrato" data-x="${k}" aria-invalid="${!!err[k]}">`;
+      return `<div class="campo-claro"><label for="${ref}">${t('cto_' + k)}</label>${entrada}
+        ${err[k] ? `<p class="erro" role="alert">${t(err[k])}</p>` : ''}</div>`;
+    };
+    return `<section class="bloco config"><h2 class="rotulo">${t('ctoTitulo')}</h2>
+      <p class="nota">${t('ctoAjuda')}</p>
+      ${Object.keys(L.CAMPOS_CONTRATO).map(campo).join('')}
+    </section>`;
+  }
+
   function configPainel() {
     const cfg = E.config, e = UI.erroConfig;
     const campo = (k, rotulo, ajuda) => `<div class="campo-claro"><label for="cfg-${k}">${t(rotulo)}</label>
@@ -4122,7 +4354,8 @@ window.LOGO_MARCA = {
       ${campo('aliqParticular', 'cfgAliqParticular', 'cfgAliqParticularAjuda')}
       <p class="nota">${esc(t('cfgExemplo', { l: moeda(L.ipva(10000000, cfg.aliqLocadora)), p: moeda(L.ipva(10000000, cfg.aliqParticular)) }))}</p>
     </section>
-    ${empresaBloco()}`;
+    ${empresaBloco()}
+    ${contratoBloco()}`;
   }
 
   /* ---------- clientes do aluguel semanal, anexos e lembretes (dono) ---------- */
@@ -4200,12 +4433,22 @@ window.LOGO_MARCA = {
       ${c.unidade ? `<small><strong>${esc(t('clCarro', { c: carroTxt(c.unidade) }))}</strong></small>
         <small>${esc(t('clPeriodo', { e: dataBR(c.entrega), d: c.devolucao ? dataBR(c.devolucao) : t('clSemDevolucao') }))}</small>
         <small>${esc(t('clValor', { v: moeda(c.valorSemanal), d: t('sem_' + c.diaVenc).toLocaleLowerCase(LOCALE) }))}</small>` : `<small>${t('clSemCarro')}</small>`}
+      ${(c.renovacoes || []).length ? `<h3 class="rotulo">${t('clRenovacoes')}</h3><ul class="manut-regs renov">${c.renovacoes.map((r, i) => {
+        const valor = i + 1 < c.renovacoes.length ? c.renovacoes[i + 1].antes.valor : c.valorSemanal;
+        const ultima = i === c.renovacoes.length - 1;
+        return `<li><span>${esc(t('clRenovacaoTxt', { e: dataBR(r.em), i: dataBR(r.desde), d: dataBR(r.devolucao), v: moeda(valor),
+          a: valor !== r.antes.valor ? t('clRenovacaoAntes', { v: moeda(r.antes.valor) }) : '' }))}</span>
+          <button class="fino" data-acao="imprimirTermo" data-x="${c.id}" data-y="${i}">${t('btnTermo')}</button>
+          ${ultima ? `<button class="fino" data-acao="desfazerRenovacao" data-x="${c.id}">${t(UI.certezaRenovacao === c.id ? 'desfazerRenovacaoCerteza' : 'desfazerRenovacao')}</button>` : ''}</li>`;
+      }).join('')}</ul>` : ''}
       ${cau && cau.estado === 'acertada' ? `<small>${esc(t('cauAcertadaTxt', { v: moeda(cau.valor), r: moeda(cau.devolvido),
         x: cau.descontado ? t('cauDescontoTxt', { d: moeda(cau.descontado), m: cau.motivo }) : '' }))}</small>` : ''}
       ${pagos.length ? `<h3 class="rotulo">${t('clPagamentos')}</h3><ul class="manut-regs">${pagos.map((p) => `<li><span>${esc(t('clPagoEm', { v: dataBR(p.venc), r: moeda(p.valor), p: dataBR(p.data) }))}</span>
         <button class="fino" data-acao="imprimirRecibo" data-x="${p.id}">${t('imp_btnRecibo')}</button>
         <button class="fino" data-acao="apagarPagamento" data-x="${p.id}">${t(UI.certezaPagamento === p.id ? 'apagarManutCerteza' : 'apagarManut')}</button></li>`).join('')}</ul>` : ''}
       <span class="acoes-linha">${cau && cau.estado === 'acertar' ? `<button class="botao verde" data-acao="acertarCaucao" data-x="${c.id}">${t('acertarCaucao')}</button>` : ''}
+        ${c.unidade ? `<button class="fino" data-acao="renovarCliente" data-x="${c.id}">${t('btnRenovar')}</button>
+        <button class="fino" data-acao="abrirContrato" data-x="${c.id}">${t('btnContrato')}</button>` : ''}
         <button class="fino" data-acao="editarCliente" data-x="${c.id}">${t('editarCarro')}</button>
         <button class="fino" data-acao="abrirAnexos" data-x="${c.id}">${esc(t('anexosN', { n: anexosDe(c.id).length }))}</button>
         <button class="fino" data-acao="imprimirCliente" data-x="${c.id}">${t('imp_btnFicha')}</button>
@@ -4270,7 +4513,7 @@ window.LOGO_MARCA = {
     const cau = L.situacaoCaucao(c, hojeData());
     const pagos = E.recebimentos.filter((p) => p.cliente === c.id).sort((a, b) => a.venc.localeCompare(b.venc));
     const total = pagos.reduce((s, p) => s + p.valor, 0);
-    const corpo = fSecao(t('imp_dadosCliente'), fDados([[t('imp_nome'), c.nome], [t('cpf'), c.cpf], [t('imp_fone'), c.fone], [t('imp_email'), c.email],
+    const corpo = fSecao(t('imp_dadosCliente'), fDados([[t('imp_nome'), c.nome], [t('cpf'), c.cpf], [t('imp_rg'), c.rg || ''], [t('imp_fone'), c.fone], [t('imp_email'), c.email],
       [t('imp_endereco'), c.endereco], [t('imp_cnh'), t('imp_cnhTxt', { n: c.cnhNumero, c: c.cnhCategoria, d: dataBR(c.cnhValidade) })]]))
       + fSecao(t('imp_contrato'), c.unidade ? fDados([[t('imp_carro'), carroTxt(c.unidade)], [t('imp_entrega'), c.entrega ? dataBR(c.entrega) : ''],
         [t('imp_devolucao'), c.devolucao ? dataBR(c.devolucao) : t('clSemDevolucao')], [t('imp_valorSemanal'), moeda(c.valorSemanal)],
@@ -4325,6 +4568,105 @@ window.LOGO_MARCA = {
       <p class="f-local">${esc(localData(cau.data))}</p>
       ${fAssinaturas([c.nome, e.nome])}`;
     imprimir(t('imp_acertoCaucao'), corpo);
+  }
+
+  /* ---------- contrato e termo aditivo (25/11/2026) ----------
+     Partes: a locadora de Configurações › Contrato (em branco = nome e CNPJ da empresa). Campo sem dado sai com linha pra preencher à mão. */
+  const LINHA = '____________________';
+  const ouLinha = (v) => (v ? esc(v) : LINHA);
+  const extensoNum = (n) => (L.valorPorExtenso(n * 100) || '').replace(/ reais?$/, '');
+  function partesContrato() {
+    const e = empresa(), k = L.contratoCfg(E.config);
+    const doc = k.locDoc || e.cnpj;
+    return { k, nome: k.locNome || e.nome, doc, docRotulo: !doc ? 'CPF/CNPJ' : doc.length === 14 ? 'CPF' : doc.length === 18 ? 'CNPJ' : 'CPF/CNPJ', rg: k.locRg, endereco: k.locEndereco || [e.endereco, e.cidade].filter(Boolean).join(' · ') };
+  }
+  const paragrafo = (txt) => {
+    const m = /^(Parágrafo [^:]+:)(.*)$/.exec(txt);
+    return `<p class="f-clausula-p">${m ? `<strong>${esc(m[1])}</strong>${esc(m[2])}` : esc(txt)}</p>`;
+  };
+  const assinaturasPartes = (P, c) => `<div class="f-assinaturas f-assin-4">
+      <div><span></span>${esc(P.nome)}<small>LOCADORA${P.doc ? ` · ${esc(P.docRotulo)} ${esc(P.doc)}` : ''}</small></div>
+      <div><span></span>${esc(c.nome)}<small>LOCATÁRIO(A) · CPF ${esc(c.cpf)}</small></div>
+      <div><span></span>Testemunha 1<small>Nome: ${LINHA}</small><small>CPF: ${LINHA}</small></div>
+      <div><span></span>Testemunha 2<small>Nome: ${LINHA}</small><small>CPF: ${LINHA}</small></div></div>`;
+
+  function imprimirContrato(c, op) {
+    const P = partesContrato(), k = P.k, u = unidade(c.unidade), mod = u && modelo(u.modelo);
+    const ini = L.inicioPeriodo(c), fim = c.devolucao, dias = fim ? L.diasEntre(ini, fim) : null;
+    const diaVenc = c.diaVenc === null || c.diaVenc === undefined ? LINHA : `toda ${t('sem_' + c.diaVenc).toLocaleLowerCase(LOCALE)}`;
+    const marca = (sim) => `(${sim ? 'x' : ' '})`;
+    const linhaQ = (rotulo, html) => `<tr><th>${esc(rotulo)}</th><td>${html}</td></tr>`;
+    const quadro = `<table class="f-quadro"><tbody>
+      ${linhaQ('Locadora', `${esc(P.nome)} – ${esc(P.docRotulo)} ${ouLinha(P.doc)}${P.rg ? ` – RG ${esc(P.rg)}` : ''}`)}
+      ${linhaQ('Endereço da locadora', ouLinha(P.endereco))}
+      ${linhaQ('Locatário(a)', `Nome: <strong>${esc(c.nome)}</strong> · CPF: ${esc(c.cpf)}`)}
+      ${linhaQ('Documento / CNH', `RG: ${ouLinha(c.rg)} · CNH: ${esc(c.cnhNumero)} · Categoria: ${esc(c.cnhCategoria)} · Validade: ${esc(dataBR(c.cnhValidade))}`)}
+      ${linhaQ('Endereço / contato', `${esc(c.endereco)} · ${esc(c.fone)}${c.email ? ` · ${esc(c.email)}` : ''}`)}
+      ${linhaQ('Veículo', u ? `${esc(mod ? mod.nome : '')}${u.ano ? ` ${esc(String(u.ano))}` : ''}${u.cor ? ` · ${esc(u.cor)}` : ''} · Placa: <strong>${esc(u.placa)}</strong> · Renavam: ${ouLinha(u.renavam)}` : LINHA)}
+      ${linhaQ('Prazo', `Retirada: <strong>${esc(dataBR(ini))}</strong> às ${op.horaRet ? esc(op.horaRet) : '____:____'} · Devolução: <strong>${fim ? esc(dataBR(fim)) : LINHA}</strong> às ${op.horaDev ? esc(op.horaDev) : '____:____'}${dias ? ` (${dias} dias)` : ''}`)}
+      ${linhaQ('Valores', `Semana: <strong>${esc(moeda(c.valorSemanal))}</strong> · Caução: <strong>${c.caucao > 0 ? esc(moeda(c.caucao)) : 'sem caução'}</strong> · Franquia: ${esc(fmtNum(Number(k.franquiaKm)))} km`)}
+      ${linhaQ('Pagamento', `Vencimento: ${esc(diaVenc)} · Forma: ${ouLinha(k.formaPagamento)}`)}
+      ${linhaQ('Uso autorizado', `Aplicativo de transporte: ${marca(op.app === 'sim')} Sim ${marca(op.app === 'nao')} Não · Região: ${ouLinha(k.regiao)}`)}
+    </tbody></table>`;
+    const clausulas = D.CONTRATO_CLAUSULAS.map((cl) => `<section class="f-clausula"><h3>${esc(cl.t)}</h3>
+      ${cl.p.map((x) => paragrafo(x.replace('{diasCaucao}', `${k.diasCaucao} (${extensoNum(Number(k.diasCaucao))})`))).join('')}</section>`).join('');
+    const vistoria = `<section class="f-quebra"><h2 class="f-anexo">Anexo I – Termo de entrega e vistoria</h2>
+      <p class="f-clausula-p">Preencher conjuntamente na retirada e na devolução. Recomenda-se registrar fotografias e vídeos datados.</p>
+      ${`<table class="f-tabela f-grade"><thead><tr><th>Item</th><th>Retirada</th><th>Devolução</th><th>Observações</th></tr></thead>
+        <tbody>${D.VISTORIA_ITENS.map((x) => `<tr><td>${esc(x)}</td><td></td><td></td><td></td></tr>`).join('')}</tbody></table>`}
+      <p class="f-linhas">Avarias preexistentes / observações na retirada:</p>
+      <p class="f-linhas">Observações na devolução:</p>
+      <p class="f-clausula-p">Fotos/vídeos anexados: ( ) Sim ( ) Não · Identificação: ${LINHA}</p>
+      <div class="f-assinaturas"><div><span></span>LOCADORA<small>Data: ____/____/______</small></div><div><span></span>LOCATÁRIO(A)<small>Data: ____/____/______</small></div></div>
+    </section>`;
+    const linhaA = (d, v) => `<tr><td>${esc(d)}</td><td>${v}</td></tr>`;
+    const anexo2 = `<section class="f-quebra"><h2 class="f-anexo">Anexo II – Resumo financeiro e condições especiais</h2>
+      <table class="f-tabela f-grade"><thead><tr><th>Descrição</th><th>Condição acordada</th></tr></thead><tbody>
+        ${linhaA('Valor e periodicidade da locação', `${esc(moeda(c.valorSemanal))} por semana${fim ? `, de ${esc(dataBR(ini))} a ${esc(dataBR(fim))} (${dias} dias)` : `, a partir de ${esc(dataBR(ini))}`}`)}
+        ${linhaA('Vencimento e forma de pagamento', `${esc(diaVenc.replace(/^t/, 'T'))} · ${ouLinha(k.formaPagamento)}`)}
+        ${linhaA('Caução e prazo de devolução', c.caucao > 0 ? `${esc(moeda(c.caucao))} · devolvida em até ${esc(k.diasCaucao)} dias depois da devolução do veículo` : 'Sem caução')}
+        ${linhaA('Franquia de quilometragem', `${esc(fmtNum(Number(k.franquiaKm)))} km`)}
+        ${linhaA('Valor por km excedente', `R$ ${esc(k.kmExcedente)} por km`)}
+        ${linhaA('Multa diária por atraso na devolução', `R$ ${esc(k.multaDiaria)} por dia`)}
+        ${linhaA('Condutores autorizados', op.condutores ? `Locatário(a) e ${esc(op.condutores)}` : 'Somente o(a) locatário(a)')}
+        ${linhaA('Limites territoriais / uso permitido', `${ouLinha(k.regiao)} · aplicativo de transporte: ${op.app === 'sim' ? 'permitido' : 'não permitido'}`)}
+        ${linhaA('Outras condições', op.outras ? esc(op.outras) : LINHA)}
+      </tbody></table>
+      <p class="f-clausula-p">As condições especiais devem ser preenchidas e rubricadas ou assinadas pelas partes.</p>
+      <div class="f-assinaturas"><div><span></span>LOCADORA<small>Data: ____/____/______</small></div><div><span></span>LOCATÁRIO(A)<small>Data: ____/____/______</small></div></div>
+    </section>`;
+    const corpo = `<section class="f-secao"><h2>Quadro-resumo</h2>${quadro}</section>
+      <section class="f-secao-livre"><h2 class="f-anexo">Cláusulas contratuais</h2>${clausulas}</section>
+      <p class="f-clausula-p">E, por estarem de acordo, as partes assinam este instrumento e seus anexos, juntamente com duas testemunhas.</p>
+      <p class="f-local">${esc(localData(ini))}</p>
+      ${assinaturasPartes(P, c)}
+      ${vistoria}${anexo2}`;
+    log('contrato gerado', `${c.id} ${ini} → ${fim || 'aberto'}`);
+    imprimir(t('imp_contratoTitulo'), corpo);
+  }
+
+  // termo aditivo da ÚLTIMA renovação: só o que mudou (prazo e valor); o resto do contrato continua valendo
+  function imprimirTermo(c, idx) { // idx = qual renovação (padrão: a última)
+    const n0 = c.renovacoes.length, k = Number.isInteger(idx) && idx >= 0 && idx < n0 ? idx : n0 - 1;
+    const r = c.renovacoes[k], P = partesContrato();
+    const valor = k + 1 < n0 ? c.renovacoes[k + 1].antes.valor : c.valorSemanal, mudou = valor !== r.antes.valor, dias = L.diasEntre(r.desde, r.devolucao);
+    const dia = c.diaVenc === null || c.diaVenc === undefined ? '' : `, com vencimento toda ${t('sem_' + c.diaVenc).toLocaleLowerCase(LOCALE)}`;
+    const cl = (titulo, txt) => `<section class="f-clausula"><h3>${esc(titulo)}</h3><p class="f-clausula-p">${txt}</p></section>`;
+    const n = (x) => `<strong>${esc(x)}</strong>`;
+    let i = 0;
+    const ord = () => `CLÁUSULA ${++i}ª`;
+    const corpo = fDados([['Locadora', `${P.nome}${P.doc ? ` · ${P.docRotulo} ${P.doc}` : ''}`], ['Locatário(a)', `${c.nome} · CPF ${c.cpf}`],
+      ['Veículo', carroTxt(c.unidade)], ['Contrato original', `iniciado em ${dataBR(c.entrega)}`]])
+      + `<p class="f-texto">As partes acima, de comum acordo, prorrogam o contrato particular de locação do veículo identificado, nos termos abaixo.</p>`
+      + cl(`${ord()} – DO PRAZO`, `A devolução do veículo, ${r.antes.devolucao ? `antes prevista para ${n(dataBR(r.antes.devolucao))}` : 'antes sem data definida'}, passa a ser em ${n(dataBR(r.devolucao))} (${dias} dias contados de ${esc(dataBR(r.desde))}).`)
+      + cl(`${ord()} – DO VALOR`, mudou
+        ? `A partir de ${n(dataBR(r.desde))}, o valor da locação passa de ${esc(moeda(r.antes.valor))} para ${n(moeda(valor))} por semana${esc(dia)}. As semanas anteriores continuam com o valor antigo.`
+        : `O valor da locação continua ${n(moeda(valor))} por semana${esc(dia)}.`)
+      + (c.caucao > 0 && !c.caucaoAcerto ? cl(`${ord()} – DA CAUÇÃO`, `A caução de ${n(moeda(c.caucao))}, já paga, continua vinculada ao contrato e será acertada no fim da locação, nas condições do contrato original.`) : '')
+      + cl(`${ord()} – DAS DEMAIS CONDIÇÕES`, 'Permanecem em vigor todas as cláusulas do contrato original que não foram alteradas por este termo.')
+      + `<p class="f-local">${esc(localData(r.desde))}</p>` + assinaturasPartes(P, c);
+    log('termo aditivo gerado', `${c.id} ${r.desde}`);
+    imprimir(t('imp_termoTitulo'), corpo);
   }
 
   function imprimirCarro(u) {
@@ -4593,6 +4935,7 @@ window.LOGO_MARCA = {
       <p class="nota">${t('avisoDados')}</p>
       ${campoForm('fl', 'nome', 'fl_nome', 'type="text" maxlength="80" autocomplete="off"')}
       ${campoForm('fl', 'cpf', 'fl_cpf', 'type="text" inputmode="numeric" maxlength="14" autocomplete="off"')}
+      ${campoForm('fl', 'rg', 'fl_rg', 'type="text" maxlength="20" autocomplete="off"')}
       ${campoForm('fl', 'cnhNumero', 'fl_cnhNumero', 'type="text" inputmode="numeric" maxlength="14" autocomplete="off"')}
       <div class="campo-claro"><label for="fl-cnhCategoria">${t('fl_cnhCategoria')}</label>
         <select id="fl-cnhCategoria" data-campo="fl.cnhCategoria" aria-invalid="${!!e.cnhCategoria}">${opcoes(L.CATEGORIAS_CNH.map((x) => [x, x]), f.cnhCategoria)}</select>${erroSel('cnhCategoria')}</div>
@@ -4609,10 +4952,11 @@ window.LOGO_MARCA = {
       <div class="campo-claro"><label for="fl-unidade">${t('fl_unidade')}</label>
         <select id="fl-unidade" data-campo="fl.unidade" aria-invalid="${!!e.unidade}">${opcoes(carros, f.unidade)}</select>${erroSel('unidade')}</div>
       ${campoForm('fl', 'entrega', 'fl_entrega', 'type="date"')}
-      ${campoForm('fl', 'devolucao', 'fl_devolucao', 'type="date"', t('fl_devolucaoAjuda'))}
+      ${campoForm('fl', 'devolucao', 'fl_devolucao', 'type="date"', atual && atual.unidade ? `${t('fl_devolucaoAjuda')} ${t('fl_devolucaoRenovar')}` : t('fl_devolucaoAjuda'))}
       <div class="campo-claro"><label for="fl-diaVenc">${t('fl_diaVenc')}</label>
         <select id="fl-diaVenc" data-campo="fl.diaVenc" aria-invalid="${!!e.diaVenc}">${opcoes(semana, f.diaVenc)}</select>${erroSel('diaVenc')}</div>
-      ${campoForm('fl', 'valorSemanal', 'fl_valorSemanal', 'type="text" inputmode="decimal" maxlength="10" autocomplete="off"')}
+      ${campoForm('fl', 'valorSemanal', 'fl_valorSemanal', 'type="text" inputmode="decimal" maxlength="10" autocomplete="off"',
+        atual && (atual.renovacoes || []).length ? t('fl_valorPeriodoAtual', { d: dataBR(L.inicioPeriodo(atual)) }) : undefined)}
       <h3 class="rotulo">${t('fl_caucaoTitulo')}</h3>
       ${atual && atual.caucaoAcerto ? `<p class="nota">${esc(t('fl_caucaoTravada', { d: dataBR(atual.caucaoAcerto.data) }))}</p>`
         : `${campoForm('fl', 'caucao', 'fl_caucao', 'type="text" inputmode="decimal" maxlength="10" autocomplete="off"', t('fl_caucaoAjuda'))}
@@ -4642,6 +4986,110 @@ window.LOGO_MARCA = {
       <p class="nota">${t('ak_aviso')}</p>
       <button class="botao verde largo" id="fk-salvar" data-acao="salvarAcertoCaucao">${t('ak_salvar')}</button>
     </div></div>`;
+  }
+
+  /* renovar (25/11/2026): estende a devolução e (se mudou) o valor a partir do novo período; a entrega e as semanas antigas ficam como estavam.
+     Depois de salvo, a mesma janela oferece imprimir o termo aditivo ou um contrato novo completo. */
+  function modalRenovar() {
+    const m = UI.modal, f = m.f, c = clienteId(m.cliente);
+    if (!c) return '';
+    const fechar = `<button class="fechar" id="jan-fechar" data-acao="fecharModal" aria-label="${t('fechar')}">×</button>`;
+    if (m.feito) {
+      return `<div class="jan-fundo"><div class="janela" role="dialog" aria-modal="true" aria-label="${t('rn_titulo')}">${fechar}
+        <h2 class="titulo">${t('rn_titulo')}</h2>
+        <p class="specs"><strong>${esc(t('rn_feito', { d: dataBR(c.devolucao), v: moeda(c.valorSemanal) }))}</strong></p>
+        <p class="nota">${t('rn_feitoAjuda')}</p>
+        <button class="botao verde largo" data-acao="imprimirTermo" data-x="${c.id}">${t('rn_imprimirTermo')}</button>
+        <button class="botao linha largo" data-acao="abrirContrato" data-x="${c.id}">${t('rn_imprimirContrato')}</button>
+        <button class="botao linha largo" data-acao="fecharModal">${t('rn_fechar')}</button>
+      </div></div>`;
+    }
+    const prazo = Number(L.contratoCfg(E.config).prazoDias) || L.PRAZO_PADRAO_DIAS;
+    const resumo = c.devolucao ? t('rn_resumo', { n: c.nome, c: carroTxt(c.unidade), d: dataBR(c.devolucao), v: moeda(c.valorSemanal) })
+      : t('rn_resumoAberto', { n: c.nome, c: carroTxt(c.unidade), v: moeda(c.valorSemanal) });
+    return `<div class="jan-fundo"><div class="janela" role="dialog" aria-modal="true" aria-label="${t('rn_titulo')}">${fechar}
+      <h2 class="titulo">${t('rn_titulo')}</h2>
+      <p class="specs">${esc(resumo)}</p>
+      ${campoForm('fr', 'desde', 'rn_desde', 'type="date"', t('rn_desdeAjuda'))}
+      ${campoForm('fr', 'devolucao', 'rn_devolucao', 'type="date"', t('rn_devolucaoAjuda', { n: prazo }))}
+      ${campoForm('fr', 'valor', 'rn_valor', 'type="text" inputmode="decimal" maxlength="10" autocomplete="off"', t('rn_valorAjuda'))}
+      ${c.caucao > 0 && !c.caucaoAcerto ? `<p class="nota">${esc(t('rn_caucao', { v: moeda(c.caucao) }))}</p>` : ''}
+      <button class="botao verde largo" id="fr-salvar" data-acao="salvarRenovacao">${t('rn_salvar')}</button>
+    </div></div>`;
+  }
+
+  function salvarRenovacao() {
+    const m = UI.modal, c = clienteId(m.cliente), hoje = hojeData();
+    if (!c || m.feito) { log('renovação cancelada: cliente sumiu ou já renovado', m.cliente); fecharModal(); desenhar(); return; }
+    const { erros, renovacao, valor } = L.validarRenovacao(m.f, c, hoje);
+    if (!Object.keys(erros).length) {
+      const conflito = L.conflitoCarroCliente(E, { ...c, devolucao: renovacao.devolucao }, c.id);
+      if (conflito) erros.devolucao = conflito;
+    }
+    m.erros = erros;
+    if (Object.keys(erros).length) { log('renovação com erro', Object.keys(erros).join(', ')); desenharModal(); focarErro('fr', erros); return; }
+    c.renovacoes = [...(c.renovacoes || []), renovacao];
+    c.devolucao = renovacao.devolucao;
+    c.valorSemanal = valor;
+    const ok = salvar();
+    log('contrato renovado', `${c.id} ${renovacao.desde} → ${renovacao.devolucao} ${renovacao.antes.valor} → ${valor}`);
+    avisar(ok ? t('renovadoOk', { n: c.nome, d: dataBR(c.devolucao) }) : t('erroSalvarAparelho'));
+    m.feito = true;
+    desenhar();
+    desenharModal();
+  }
+
+  // desfaz só a última renovação (pra corrigir engano): volta a devolução e o valor de antes dela
+  function desfazerRenovacao(id) {
+    const c = clienteId(id);
+    if (!c || !(c.renovacoes || []).length) return;
+    if (!pedirCerteza('certezaRenovacao', c.id)) return;
+    const r = c.renovacoes[c.renovacoes.length - 1];
+    c.renovacoes = c.renovacoes.slice(0, -1);
+    if (!c.renovacoes.length) delete c.renovacoes;
+    c.devolucao = r.antes.devolucao;
+    c.valorSemanal = r.antes.valor;
+    UI.certezaRenovacao = null;
+    const ok = salvar();
+    log('renovação desfeita', `${c.id} ${r.desde}`);
+    avisar(ok ? t('renovacaoDesfeita', { d: c.devolucao ? dataBR(c.devolucao) : t('clSemDevolucao'), v: moeda(c.valorSemanal) }) : t('erroSalvarAparelho'));
+    desenhar();
+  }
+
+  // opções do contrato que mudam de cliente pra cliente (horários, aplicativo, condutores); nada disso é salvo
+  function modalContrato() {
+    const m = UI.modal, f = m.f, e = m.erros, c = clienteId(m.cliente);
+    if (!c) return '';
+    const ini = L.inicioPeriodo(c);
+    return `<div class="jan-fundo"><div class="janela" role="dialog" aria-modal="true" aria-label="${t('ct_titulo')}">
+      <button class="fechar" id="jan-fechar" data-acao="fecharModal" aria-label="${t('fechar')}">×</button>
+      <h2 class="titulo">${t('ct_titulo')}</h2>
+      <p class="specs">${esc(t('ct_resumo', { n: c.nome, c: carroTxt(c.unidade), i: dataBR(ini), d: c.devolucao ? dataBR(c.devolucao) : t('clSemDevolucao'), v: moeda(c.valorSemanal) }))}</p>
+      ${campoForm('fo', 'horaRet', 'ct_horaRet', 'type="time"')}
+      ${campoForm('fo', 'horaDev', 'ct_horaDev', 'type="time"')}
+      <div class="campo-claro"><label for="fo-app">${t('ct_app')}</label>
+        <select id="fo-app" data-campo="fo.app">${opcoes([['sim', t('ct_sim')], ['nao', t('ct_nao')]], f.app)}</select></div>
+      ${campoForm('fo', 'condutores', 'ct_condutores', 'type="text" maxlength="160" autocomplete="off"')}
+      ${campoForm('fo', 'outras', 'ct_outras', 'type="text" maxlength="300" autocomplete="off"')}
+      <p class="nota">${t('ct_ajuda')}</p>
+      <button class="botao verde largo" id="fo-salvar" data-acao="imprimirContrato">${t('ct_imprimir')}</button>
+    </div></div>`;
+  }
+
+  function imprimirContratoDaJanela() {
+    const m = UI.modal, c = m && clienteId(m.cliente);
+    if (!c) { fecharModal(); desenhar(); return; }
+    const f = m.f, erros = {};
+    const hora = (v) => v === '' || /^([01]\d|2[0-3]):[0-5]\d$/.test(v);
+    const op = { horaRet: String(f.horaRet || ''), horaDev: String(f.horaDev || ''), app: f.app === 'nao' ? 'nao' : 'sim',
+      condutores: String(f.condutores || '').trim().replace(/\s+/g, ' '), outras: String(f.outras || '').trim().replace(/\s+/g, ' ') };
+    if (!hora(op.horaRet)) erros.horaRet = 'erroHora';
+    if (!hora(op.horaDev)) erros.horaDev = 'erroHora';
+    if (op.condutores.length > 160) erros.condutores = 'erroTextoLongo';
+    if (op.outras.length > 300) erros.outras = 'erroTextoLongo';
+    m.erros = erros;
+    if (Object.keys(erros).length) { desenharModal(); focarErro('fo', erros); return; }
+    imprimirContrato(c, op);
   }
 
   function salvarAcertoCaucao() {
@@ -4747,7 +5195,7 @@ window.LOGO_MARCA = {
     const m = UI.modal;
     const antes = alvo.querySelector('.janela');
     const y = antes ? antes.scrollTop : 0;
-    const janelas = { vistoria: modalVistoria, checkin: modalCheckin, carro: modalCarro, manut: modalManut, custo: modalCusto, cliente: modalCliente, anexos: modalAnexos, copia: modalCopia, conta: modalConta, caucao: modalCaucao };
+    const janelas = { vistoria: modalVistoria, checkin: modalCheckin, carro: modalCarro, manut: modalManut, custo: modalCusto, cliente: modalCliente, anexos: modalAnexos, copia: modalCopia, conta: modalConta, caucao: modalCaucao, renovar: modalRenovar, contrato: modalContrato };
     alvo.innerHTML = !m ? '' : janelas[m.tipo] ? janelas[m.tipo]() : modalReserva(reserva(m.id));
     const depois = alvo.querySelector('.janela');
     if (depois) depois.scrollTop = y;
@@ -5146,11 +5594,11 @@ window.LOGO_MARCA = {
     const c = clienteId(clId), hoje = hojeData();
     const l = c && L.lembretePagamento(c, E.recebimentos, hoje);
     if (!l || l.venc !== venc) { log('pagamento ignorado: o vencimento mudou (clique repetido?)', `${clId} ${venc}`); desenhar(); return; }
-    E.recebimentos.push({ id: proximoId('pg', E.recebimentos), cliente: c.id, unidade: c.unidade, venc, data: hoje, valor: c.valorSemanal });
+    E.recebimentos.push({ id: proximoId('pg', E.recebimentos), cliente: c.id, unidade: c.unidade, venc, data: hoje, valor: l.valor });
     const ok = salvar();
-    log('pagamento semanal registrado', `${c.id} ${venc} ${c.valorSemanal}`);
+    log('pagamento semanal registrado', `${c.id} ${venc} ${l.valor}`);
     const u = unidade(c.unidade);
-    avisar(ok ? t('pagoOk', { n: c.nome, v: moeda(c.valorSemanal), p: u ? u.placa : '' }) : t('erroSalvarAparelho'));
+    avisar(ok ? t('pagoOk', { n: c.nome, v: moeda(l.valor), p: u ? u.placa : '' }) : t('erroSalvarAparelho'));
     desenhar();
   }
 
@@ -5591,6 +6039,23 @@ window.LOGO_MARCA = {
     abaPainel(x) { UI.abaPainel = x; desenhar(); },
     imprimirCliente(x) { const c = clienteId(x); if (c) imprimirCliente(c); },
     imprimirCaucao(x) { const c = clienteId(x); if (c) imprimirCaucao(c); },
+    renovarCliente(x) {
+      const c = clienteId(x);
+      if (!c || !c.unidade) return;
+      const desde = c.devolucao || hojeData();
+      const prazo = Number(L.contratoCfg(E.config).prazoDias) || L.PRAZO_PADRAO_DIAS;
+      abrirModal({ tipo: 'renovar', cliente: c.id, erros: {}, auto: true, feito: false,
+        f: { desde, devolucao: L.somarDias(desde, prazo), valor: reaisTxt(c.valorSemanal) } });
+    },
+    salvarRenovacao() { salvarRenovacao(); },
+    desfazerRenovacao(x) { desfazerRenovacao(x); },
+    abrirContrato(x) {
+      const c = clienteId(x);
+      if (!c || !c.unidade) return;
+      abrirModal({ tipo: 'contrato', cliente: c.id, erros: {}, f: { horaRet: '', horaDev: '', app: L.contratoCfg(E.config).app, condutores: '', outras: '' } });
+    },
+    imprimirContrato() { imprimirContratoDaJanela(); },
+    imprimirTermo(x, y) { const c = clienteId(x); if (c && (c.renovacoes || []).length) imprimirTermo(c, y === undefined ? undefined : Number(y)); },
     imprimirRecibo(x) { const p = E.recebimentos.find((r) => r.id === x); if (p) imprimirRecibo(p); },
     imprimirCarro(x) { const u = E.unidades.find((r) => r.id === x); if (u) imprimirCarro(u); },
     imprimirMargem() { imprimirMargem(); },
@@ -5775,14 +6240,14 @@ window.LOGO_MARCA = {
     simFrota(x) { if (['custo', 'diaria', 'fipe'].includes(x)) { UI.sim[x] = null; delete UI.sim.erros[x]; desenhar(); } },
     novoCliente() {
       abrirModal({ tipo: 'cliente', cliente: null, erros: {}, certezaRemover: false,
-        f: { nome: '', cpf: '', cnhNumero: '', cnhCategoria: 'B', cnhValidade: '', endereco: '', fone: '', email: '', antOk: false, antData: '', antObs: '',
+        f: { nome: '', cpf: '', rg: '', cnhNumero: '', cnhCategoria: 'B', cnhValidade: '', endereco: '', fone: '', email: '', antOk: false, antData: '', antObs: '',
           unidade: '', entrega: hojeData(), devolucao: '', diaVenc: '', valorSemanal: '', caucao: '', caucaoData: hojeData() } });
     },
     editarCliente(x) {
       const c = clienteId(x);
       if (!c) return;
       abrirModal({ tipo: 'cliente', cliente: c.id, erros: {}, certezaRemover: false,
-        f: { nome: c.nome, cpf: c.cpf, cnhNumero: c.cnhNumero, cnhCategoria: c.cnhCategoria, cnhValidade: c.cnhValidade, endereco: c.endereco, fone: c.fone,
+        f: { nome: c.nome, cpf: c.cpf, rg: c.rg || '', cnhNumero: c.cnhNumero, cnhCategoria: c.cnhCategoria, cnhValidade: c.cnhValidade, endereco: c.endereco, fone: c.fone,
           email: c.email, antOk: c.antecedentes.ok, antData: c.antecedentes.data, antObs: c.antecedentes.obs, unidade: c.unidade,
           entrega: c.entrega || hojeData(), devolucao: c.devolucao, diaVenc: c.diaVenc === null ? '' : String(c.diaVenc), valorSemanal: c.valorSemanal ? reaisTxt(c.valorSemanal) : '',
           caucao: c.caucao ? reaisTxt(c.caucao) : '', caucaoData: c.caucaoData || c.entrega || hojeData(), caucaoAcertada: c.caucaoAcerto ? c.caucao : 0 } });
@@ -5926,8 +6391,16 @@ window.LOGO_MARCA = {
     if (c.startsWith('motorista.')) UI.rascunho.motorista[c.split('.')[1]] = e.target.value;
     if (c === 'vist.km') UI.modal.km = e.target.value;
     if (c === 'ck.texto') UI.modal.texto = e.target.value;
-    if (/^f[cmulak]\.\w+$/.test(c) && c !== 'fc.foto' && c !== 'fa.arquivo' && UI.modal && UI.modal.f) UI.modal.f[c.slice(3)] = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
+    if (/^f[cmulakro]\.\w+$/.test(c) && c !== 'fc.foto' && c !== 'fa.arquivo' && UI.modal && UI.modal.f) UI.modal.f[c.slice(3)] = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
     if (c === 'fu.valor' && UI.modal) UI.modal.auto = false; // o dono digitou: não troca mais o valor sozinho
+    if (c === 'fr.devolucao' && UI.modal) UI.modal.auto = false;
+    if (c === 'fr.desde' && UI.modal && UI.modal.tipo === 'renovar' && UI.modal.auto && L.dataValida(e.target.value)) {
+      // mudou o começo: a nova devolução acompanha (prazo padrão), até o dono mexer nela
+      const nova = L.somarDias(e.target.value, Number(L.contratoCfg(E.config).prazoDias) || L.PRAZO_PADRAO_DIAS);
+      UI.modal.f.devolucao = nova;
+      const alvo = document.getElementById('fr-devolucao');
+      if (alvo) alvo.value = nova;
+    }
     if (c === 'fk.descontado' && UI.modal && UI.modal.tipo === 'caucao') {
       // mostra na hora quanto devolver (sem redesenhar a janela, pra não perder o cursor)
       const cl = clienteId(UI.modal.cliente), alvo = document.getElementById('ak-devolver');
@@ -5995,6 +6468,22 @@ window.LOGO_MARCA = {
       salvar();
       log('dados da empresa alterados', k);
       avisar(t('empSalvo'));
+      desenharDepois();
+      return;
+    }
+    if (c === 'contrato') {
+      const k = el.dataset.x;
+      if (!(k in L.CAMPOS_CONTRATO)) return;
+      const r = L.validarCampoContrato(k, el.value);
+      if (r.erro) { UI.erroContrato[k] = r.erro; desenharDepois(); return; }
+      delete UI.erroContrato[k];
+      const atual = { ...(E.config.contrato || {}) };
+      if (L.contratoCfg(E.config)[k] === r.valor) { desenharDepois(); return; }
+      atual[k] = r.valor;
+      E.config = { ...E.config, contrato: atual };
+      salvar();
+      log('dados do contrato alterados', k);
+      avisar(t('ctoSalvo'));
       desenharDepois();
       return;
     }
