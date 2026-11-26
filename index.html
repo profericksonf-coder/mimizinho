@@ -1708,6 +1708,7 @@ body { font-size: 15.5px; -webkit-font-smoothing: antialiased; }
     erroDadosBanco: 'Os dados do banco vieram num formato que o app não reconhece. Nada foi alterado. Fale com a equipe da NexoraAI.',
     erroBiblioteca: 'O app não carregou por completo. Recarregue a página.',
     tentarDeNovo: 'Tentar de novo',
+    tentandoSozinho: 'O app vai tentar de novo sozinho em alguns segundos.',
     carregando: 'Carregando os dados…',
     abaReservar: 'Reservar',
     abaReservas: 'Minhas reservas',
@@ -2888,9 +2889,52 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     window.Nuvem = { ok: false };
     return;
   }
+  /* 26/11/2026: o servidor do projeto às vezes some por uns 20 s. A borda do Supabase (Cloudflare) devolve 522 = "não
+     consegui nem conectar no servidor"; ~3,5% dos pedidos num dia, em rajadas. Sem isto, uma rajada na hora de abrir a
+     página virava a tela "Sem conexão com o servidor".
+     - Leitura (GET/HEAD): corta em 12 s e tenta de novo, até 3 vezes. Ler de novo nunca estraga nada.
+     - Escrita: só repete quando a resposta PROVA que o pedido não chegou ao servidor (520 a 523). Se a conexão cai no
+       meio, não dá pra saber se gravou, então quem chamou decide (a fila de gravação já tenta de novo com o estado novo). */
+  const NAO_CHEGOU = [520, 521, 522, 523];
+  const ESPERAS = [0, 1500, 4000], CORTE_LEITURA = 12000;
+  const dormir = (ms) => new Promise((ok) => setTimeout(ok, ms));
+  async function fetchPaciente(url, opcoes = {}) {
+    const metodo = String(opcoes.method || 'GET').toUpperCase();
+    const caminho = String(url).replace(URL_PROJETO, '').split('?')[0];
+    // eh_membro vai por POST (é assim que o supabase-js chama função), mas só lê: pode repetir sempre
+    const leitura = metodo === 'GET' || metodo === 'HEAD' || caminho === '/rest/v1/rpc/eh_membro';
+    let ultimaResposta = null, ultimoErro = null;
+    for (let i = 0; i < ESPERAS.length; i++) {
+      if (ESPERAS[i]) await dormir(ESPERAS[i]);
+      if (opcoes.signal && opcoes.signal.aborted) break;
+      const corte = leitura ? new AbortController() : null;
+      const repassar = () => corte && corte.abort();
+      if (corte && opcoes.signal) opcoes.signal.addEventListener('abort', repassar, { once: true });
+      const relogio = corte ? setTimeout(() => corte.abort(), CORTE_LEITURA) : null;
+      try {
+        const resposta = await fetch(url, corte ? { ...opcoes, signal: corte.signal } : opcoes);
+        const repetir = NAO_CHEGOU.includes(resposta.status) || (leitura && resposta.status >= 502 && resposta.status <= 504);
+        if (!repetir || i === ESPERAS.length - 1) return resposta;
+        ultimaResposta = resposta;
+        console.warn(`[mimizinho/banco] servidor respondeu ${resposta.status} em ${metodo} ${caminho}; tentando de novo (${i + 2}/${ESPERAS.length})`);
+      } catch (erro) {
+        ultimoErro = erro;
+        if (opcoes.signal && opcoes.signal.aborted) throw erro; // quem chamou cancelou
+        if (!leitura) throw erro; // escrita interrompida: não dá pra saber se chegou
+        console.warn(`[mimizinho/banco] ${metodo} ${caminho} sem resposta (${erro && erro.name === 'AbortError' ? 'passou de 12 s' : erro && erro.message}); tentando de novo (${i + 2}/${ESPERAS.length})`);
+      } finally {
+        if (relogio) clearTimeout(relogio);
+        if (corte && opcoes.signal) opcoes.signal.removeEventListener('abort', repassar);
+      }
+    }
+    if (ultimaResposta) return ultimaResposta;
+    throw ultimoErro || new Error('Failed to fetch');
+  }
+
   const sb = window.supabase.createClient(URL_PROJETO, CHAVE_PUBLICA, {
     db: { schema: SCHEMA },
     auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, flowType: 'implicit' },
+    global: { fetch: fetchPaciente },
   });
 
   /* ---------- login ---------- */
@@ -5696,12 +5740,29 @@ window.LOGO_MARCA = {
         if (Nuvem.canon(pronto) !== Nuvem.canon(lido.estado)) Nuvem.gravar(E); // virada do dia: as outras pessoas veem igual
       }
       NUVEM.tela = 'app';
+      clearTimeout(novaTentativa); esperaTentativa = 15000;
       desenhar();
       log('pronto', `${E.unidades.length} carros, ${E.clientes.length} clientes (${NUVEM.modo})`);
     } catch (erro) {
       console.error('[volante] não consegui ler os dados do banco:', erro);
       NUVEM.tela = 'erro'; NUVEM.erro = msgErroAuth(erro) === 'entSemInternet' ? 'entSemInternet' : 'erroLerBanco'; desenhar();
+      agendarNovaTentativa();
     }
+  }
+
+  /* 26/11/2026: o servidor do Supabase às vezes some por uns segundos. Na tela de erro de leitura, o app tenta de novo
+     sozinho (15 s, 30 s, 60 s…, no máximo a cada 2 min) até conseguir; o botão "Tentar de novo" continua valendo. */
+  let novaTentativa = null, esperaTentativa = 15000;
+  function agendarNovaTentativa() {
+    clearTimeout(novaTentativa);
+    if (NUVEM.tela !== 'erro' || (NUVEM.erro !== 'entSemInternet' && NUVEM.erro !== 'erroLerBanco')) return;
+    const espera = esperaTentativa;
+    esperaTentativa = Math.min(espera * 2, 120000);
+    log('tentando ler o banco de novo sozinho', `em ${espera / 1000} s`);
+    novaTentativa = setTimeout(() => {
+      if (NUVEM.tela === 'erro' && !document.hidden) iniciar();
+      else if (NUVEM.tela === 'erro') agendarNovaTentativa(); // aba escondida: espera ela voltar
+    }, espera);
   }
 
   // o que outra pessoa gravou aparece aqui quando a aba volta a ficar visível (e a cada minuto)
@@ -5841,7 +5902,9 @@ window.LOGO_MARCA = {
       miolo = `<div class="ent-cartao">${marca}<h1 class="titulo">${t('naoMembroTitulo')}</h1><p>${esc(t('naoMembroTexto', { e: NUVEM.email }))}</p>
         <button class="botao linha largo" data-acao="sairConta">${t('sair')}</button></div>`;
     } else if (NUVEM.tela === 'erro') {
+      const sozinho = NUVEM.erro === 'entSemInternet' || NUVEM.erro === 'erroLerBanco';
       miolo = `<div class="ent-cartao">${marca}<h1 class="titulo">${t('erroTitulo')}</h1><p role="alert">${t(NUVEM.erro || 'erroLerBanco')}</p>
+        ${sozinho ? `<p class="nota" role="status">${t('tentandoSozinho')}</p>` : ''}
         <button class="botao verde largo" data-acao="tentarDeNovo">${t('tentarDeNovo')}</button>
         <button class="fino" data-acao="sairConta">${t('sair')}</button></div>`;
     } else {
