@@ -2176,7 +2176,11 @@ body { font-size: 15.5px; -webkit-font-smoothing: antialiased; }
     mgReceitaUma: 'Receita (1 reserva, {d} diárias)',
     mgCaucao: 'Caução descontada no acerto',
     mgSemanal: 'Aluguel semanal recebido',
-    mgManutencao: 'Manutenção',
+    mgManutencao: 'Manutenção com data neste mês',
+    fichaManutMes: 'Manutenções com data em {m}',
+    fichaManutMesVazio: 'Nenhuma manutenção com data em {m}. Use as setas ‹ › pra ver outro mês.',
+    fichaManutZero: 'valor R$ 0: não soma',
+    fichaManutTotal: 'Total de manutenção deste carro (todos os meses): {v} em {n} lançamento(s).',
     mgCustos: 'Custos lançados (IPVA e seguro em 1/12)',
     mgIpvaEstimado: 'IPVA estimado pela FIPE (1/12)',
     mgFixo: 'Parte do custo fixo da empresa',
@@ -4247,6 +4251,17 @@ window.LOGO_MARCA = {
       <div><dt>${t('mgMargem')}</dt><dd>${esc(margemTxt(mg.margem))}</dd></div></dl>`;
   }
 
+  // na ficha: quais manutenções entraram na conta do mês (pela DATA) e o total do carro em todos os meses
+  function manutDoMes(u) {
+    const todas = E.manutencoes.filter((r) => r.unidade === u.id);
+    const doMes = todas.filter((r) => r.data.slice(0, 7) === UI.mes).sort((a, b) => b.data.localeCompare(a.data) || b.km - a.km);
+    const mes = nomeMes(UI.mes);
+    const lista = doMes.length
+      ? `<p class="nota"><strong>${esc(t('fichaManutMes', { m: mes }))}</strong></p><ul class="manut-regs">${doMes.map((r) => `<li><span><strong>${esc(nomeManut(r))}</strong> · ${esc(fmtDataAno.format(L.ms(`${r.data}T00:00`)))} · ${esc(moeda(r.valor))}${r.valor === 0 ? ` <small>${esc(t('fichaManutZero'))}</small>` : ''}</span></li>`).join('')}</ul>`
+      : `<p class="nota">${esc(t('fichaManutMesVazio', { m: mes }))}</p>`;
+    return `${lista}<p class="nota">${esc(t('fichaManutTotal', { v: moeda(L.gastoManutencao(E.manutencoes, u.id)), n: todas.length }))}</p>`;
+  }
+
   function listaCustos(u) {
     const lista = E.custos.filter((c) => c.unidade === u.id).sort((a, b) => b.data.localeCompare(a.data) || b.id.localeCompare(a.id));
     if (!lista.length) return `<p class="nota">${t('semCustos')}</p>`;
@@ -4285,7 +4300,7 @@ window.LOGO_MARCA = {
           </div>
         </div>
         ${mesNav()}
-        <section class="bloco"><h3 class="rotulo">${t('fichaMargem')}</h3>${contaMargem(mg)}</section>
+        <section class="bloco"><h3 class="rotulo">${t('fichaMargem')}</h3>${contaMargem(mg)}${manutDoMes(u)}</section>
         <section class="bloco"><h3 class="rotulo">${t('fichaReservas')}</h3>
           ${res.length ? `<div class="tabela-rolo"><table class="tabela">
             <thead><tr><th>${t('colCodigo')}</th><th>${t('colCliente')}</th><th>${t('retirada')}</th><th>${t('devolucao')}</th><th class="num">${t('total')}</th><th>${t('colSituacao')}</th></tr></thead>
